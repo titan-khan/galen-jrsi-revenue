@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Galen v0 — User Journey Map</title>
+<style>
+  :root {
+    --bg: #0B1120;
+    --surface: #111827;
+    --surface2: #1E293B;
+    --border: #1E293B;
+    --border-accent: #334155;
+    --text: #F1F5F9;
+    --text-muted: #94A3B8;
+    --text-dim: #64748B;
+    --accent: #6366F1;
+    --accent-light: #818CF8;
+    --accent-glow: rgba(99,102,241,.15);
+    --green: #22C55E;
+    --green-bg: rgba(34,197,94,.12);
+    --amber: #F59E0B;
+    --amber-bg: rgba(245,158,11,.12);
+    --red: #EF4444;
+    --red-bg: rgba(239,68,68,.12);
+    --blue: #3B82F6;
+    --blue-bg: rgba(59,130,246,.12);
+    --cyan: #06B6D4;
+    --cyan-bg: rgba(6,182,212,.12);
+    --purple: #A855F7;
+    --purple-bg: rgba(168,85,247,.12);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,.35);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    text-align: center;
+    padding: 56px 24px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -120px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: .95rem;
+    max-width: 540px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ─── Persona Card ─── */
+  .persona-section {
+    max-width: 920px;
+    margin: 0 auto 48px;
+    padding: 0 24px;
+  }
+  .persona-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    box-shadow: var(--shadow);
+  }
+  .persona-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+  .persona-info h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 2px; }
+  .persona-info .role { color: var(--accent-light); font-size: .85rem; font-weight: 500; }
+  .persona-info .desc { color: var(--text-muted); font-size: .85rem; margin-top: 6px; }
+  .persona-goals {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .persona-goals span {
+    background: var(--accent-glow);
+    color: var(--accent-light);
+    font-size: .75rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(99,102,241,.2);
+  }
+
+  /* ─── Journey Container ─── */
+  .journey { max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ─── Phase Row ─── */
+  .phase {
+    position: relative;
+    margin-bottom: 0;
+  }
+
+  /* connector line between phases */
+  .phase:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -28px;
+    width: 2px;
+    height: 28px;
+    background: var(--border-accent);
+  }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-top: 28px;
+  }
+  .phase-number {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem; color: #fff;
+    flex-shrink: 0;
+  }
+  .phase-label {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+  }
+  .phase-duration {
+    color: var(--text-dim);
+    font-size: .78rem;
+    margin-left: auto;
+    background: var(--surface);
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Steps Grid ─── */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .step:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(99,102,241,.12);
+    transform: translateY(-2px);
+  }
+  .step-icon {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+  }
+  .step h4 {
+    font-size: .92rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: -.01em;
+  }
+  .step p {
+    color: var(--text-muted);
+    font-size: .8rem;
+    line-height: 1.55;
+  }
+
+  /* ─── Touchpoints / Channels ─── */
+  .touchpoints {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .touchpoint {
+    font-size: .7rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Emotion Indicator ─── */
+  .emotion-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .emotion-label {
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    white-space: nowrap;
+    min-width: 70px;
+  }
+  .emotion-track {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 999px;
+    position: relative;
+    overflow: hidden;
+  }
+  .emotion-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .6s ease;
+  }
+  .emotion-value {
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* ─── Insights Row ─── */
+  .insights-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+  .insight-card h5 {
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 8px;
+  }
+  .insight-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .insight-card li {
+    font-size: .78rem;
+    color: var(--text-muted);
+    padding: 3px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+  .insight-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+
+  .insight-card.thoughts h5 { color: var(--blue); }
+  .insight-card.thoughts li::before { background: var(--blue); }
+  .insight-card.pains h5 { color: var(--red); }
+  .insight-card.pains li::before { background: var(--red); }
+  .insight-card.opportunities h5 { color: var(--green); }
+  .insight-card.opportunities li::before { background: var(--green); }
+
+  /* ─── Summary Stats ─── */
+  .summary-section {
+    max-width: 1200px;
+    margin: 0 auto 80px;
+    padding: 0 24px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: .8rem;
+    color: var(--text-muted);
+  }
+
+  /* ─── Color Helpers ─── */
+  .bg-accent { background: var(--accent-glow); }
+  .bg-green { background: var(--green-bg); }
+  .bg-amber { background: var(--amber-bg); }
+  .bg-red { background: var(--red-bg); }
+  .bg-blue { background: var(--blue-bg); }
+  .bg-cyan { background: var(--cyan-bg); }
+  .bg-purple { background: var(--purple-bg); }
+  .c-accent { color: var(--accent-light); }
+  .c-green { color: var(--green); }
+  .c-amber { color: var(--amber); }
+  .c-red { color: var(--red); }
+  .c-blue { color: var(--blue); }
+  .c-cyan { color: var(--cyan); }
+  .c-purple { color: var(--purple); }
+
+  /* ─── CTA / Key Moment ─── */
+  .key-moment {
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-glow) 0%, transparent 40%);
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .header h1 { font-size: 1.6rem; }
+    .persona-card { flex-direction: column; text-align: center; }
+    .insights-row { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .steps { grid-template-columns: 1fr; }
+    .phase-duration { display: none; }
+  }
+
+  /* ─── Tooltip on hover ─── */
+  .step[data-detail]::after {
+    content: attr(data-detail);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: .75rem;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-accent);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 10;
+    box-shadow: var(--shadow);
+  }
+  .step[data-detail]:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px);
+  }
+
+  /* ─── Divider ─── */
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* ─── Legend ─── */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .78rem;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* ─── Footer ─── */
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    color: var(--text-dim);
+    font-size: .78rem;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<div class="header">
+  <h1>Galen v0 User Journey Map</h1>
+  <p>AI-powered operations intelligence platform. End-to-end journey from discovery through daily value realization.</p>
+</div>
+
+<!-- ==================== LEGEND ==================== -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Thoughts</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Pain Points</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Opportunities</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Key Moment</div>
+</div>
+
+<!-- ==================== PERSONA ==================== -->
+<div class="persona-section">
+  <div class="persona-card">
+    <div class="persona-avatar">SO</div>
+    <div class="persona-info">
+      <h3>Sarah O., Head of Operations</h3>
+      <div class="role">Primary Persona — Decision Maker</div>
+      <div class="desc">Oversees fleet operations for a mid-size transport company. Spends 4+ hours/day in spreadsheets tracking KPIs. Wants proactive anomaly detection, not reactive firefighting.</div>
+      <div class="persona-goals">
+        <span>Reduce manual reporting</span>
+        <span>Catch issues earlier</span>
+        <span>Data-driven decisions</span>
+        <span>Track ROI of actions</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SUMMARY STATS ==================== -->
+<div class="summary-section">
+  <div class="summary-grid">
+    <div class="stat-card">
+      <div class="stat-value c-accent">6</div>
+      <div class="stat-label">Journey Phases</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value c-green">24</div>
+      <div class="stat-label">Touchpoints</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value c-amber">9</div>
+      <div class="stat-label">Pain Points</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value c-cyan">12</div>
+      <div class="stat-label">Opportunities</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== JOURNEY ==================== -->
+<div class="journey">
+
+  <!-- ═══════ PHASE 1: DISCOVERY ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--blue)">1</div>
+      <div class="phase-label">Discovery & Awareness</div>
+      <div class="phase-duration">Day 0</div>
+    </div>
+
+    <div class="steps">
+      <div class="step" data-detail="First exposure to the platform">
+        <div class="step-icon bg-blue"><svg width="20" height="20" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+        <h4>Discovers Galen</h4>
+        <p>Hears about AI-powered operations monitoring that replaces manual KPI tracking and spreadsheet-based analysis.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Landing Page</span>
+          <span class="touchpoint">Demo Video</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Evaluates relevance to current pain">
+        <div class="step-icon bg-blue"><svg width="20" height="20" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+        <h4>Evaluates Value Proposition</h4>
+        <p>Reviews specialist types (Revenue, Operations, Customer, Finance) and sees alignment with her operational challenges.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Feature Matrix</span>
+          <span class="touchpoint">Use Cases</span>
+        </div>
+      </div>
+
+      <div class="step key-moment" data-detail="Decision to try the platform">
+        <div class="step-icon bg-accent"><svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <h4>Decides to Try</h4>
+        <p>The promise of hiring an "AI specialist" that continuously monitors OTP, NPS, and revenue convinces her to sign up.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Sign-Up Flow</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:65%;background:linear-gradient(90deg,var(--amber),var(--green))"></div>
+      </div>
+      <div class="emotion-value c-amber">Curious</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>Can AI really replace my morning KPI review?</li>
+          <li>How is this different from a BI dashboard?</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>Unclear how data connects to the platform</li>
+          <li>No self-serve trial visible</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>Interactive demo with sample transport data</li>
+          <li>ROI calculator for manual hours saved</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PHASE 2: ONBOARDING ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--cyan)">2</div>
+      <div class="phase-label">Onboarding & Data Setup</div>
+      <div class="phase-duration">Day 1 — 3</div>
+    </div>
+
+    <div class="steps">
+      <div class="step" data-detail="First login experience">
+        <div class="step-icon bg-cyan"><svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div>
+        <h4>Lands on Home Dashboard</h4>
+        <p>Sees an empty dashboard with quick actions: Hire Specialist, Create Metric, Open Assistant. Stats show zeros, prompting action.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Home Page</span>
+          <span class="touchpoint">Quick Actions</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Connects business data">
+        <div class="step-icon bg-cyan"><svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/></svg></div>
+        <h4>Connects Data Sources</h4>
+        <p>Navigates to Data Connector page. Uploads CSV files with trip data, revenue figures, and NPS survey results.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Data Connector</span>
+          <span class="touchpoint">CSV Upload</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Explores available metrics">
+        <div class="step-icon bg-cyan"><svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
+        <h4>Browses Metrics Catalog</h4>
+        <p>Opens Metrics Hub, browses available metrics across Revenue, Operations, and Customer domains. Follows key ones like OTP and NPS.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Metrics Hub</span>
+          <span class="touchpoint">Browse Tab</span>
+          <span class="touchpoint">Follow Button</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Custom metric creation">
+        <div class="step-icon bg-cyan"><svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></div>
+        <h4>Defines Custom Metrics</h4>
+        <p>Creates a new metric with aggregation rules, time granularity, target values, and anomaly detection settings.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Metric Definition</span>
+          <span class="touchpoint">Target Setup</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:50%;background:linear-gradient(90deg,var(--amber),var(--amber))"></div>
+      </div>
+      <div class="emotion-value c-amber">Cautious</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>There are a lot of metrics. Which ones matter most?</li>
+          <li>Will the AI understand my specific business context?</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>CSV upload is manual; no live database connector</li>
+          <li>Metric relationships need manual setup</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>Guided onboarding wizard with industry templates</li>
+          <li>Auto-detect metric relationships from data</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PHASE 3: FIRST SPECIALIST ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--accent)">3</div>
+      <div class="phase-label">First Specialist Hire</div>
+      <div class="phase-duration">Day 3 — 5</div>
+    </div>
+
+    <div class="steps">
+      <div class="step key-moment" data-detail="Key Aha! moment">
+        <div class="step-icon bg-accent"><svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h4>Step 1: Choose Business View</h4>
+        <p>Enters the 5-step "Hire Specialist" wizard. Selects "Operations" as the business view, picks "OTP Monitoring" from the use case catalog.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Wizard Step 1</span>
+          <span class="touchpoint">Use Case Catalog</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Configure what to watch">
+        <div class="step-icon bg-accent"><svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <h4>Step 2: Set Monitoring Scope</h4>
+        <p>Selects OTP as the main metric, adds key drivers: departure delays, driver attendance, vehicle breakdowns. AI suggests additional related metrics.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Metric Picker</span>
+          <span class="touchpoint">AI Suggestions</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Define alert thresholds">
+        <div class="step-icon bg-accent"><svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <h4>Step 3: Configure Rules</h4>
+        <p>Sets alert: "When OTP drops below 85% for 3+ consecutive days, flag as critical." AI auto-suggests rule thresholds based on historical data patterns.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Rule Builder</span>
+          <span class="touchpoint">Severity Selector</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Give specialist context">
+        <div class="step-icon bg-accent"><svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg></div>
+        <h4>Step 4: Upload Knowledge</h4>
+        <p>Uploads SLA documents, route schedules, and seasonal patterns. Adds custom instructions about regional nuances the specialist should consider.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">File Upload</span>
+          <span class="touchpoint">Custom Instructions</span>
+        </div>
+      </div>
+
+      <div class="step key-moment" data-detail="Specialist goes live!">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg></div>
+        <h4>Step 5: Activate & First Run</h4>
+        <p>Configures notifications (in-app + email, daily digest). Clicks "Hire Specialist" and immediately triggers the first analysis run.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Notification Settings</span>
+          <span class="touchpoint">Activation</span>
+          <span class="touchpoint">First Run</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:80%;background:linear-gradient(90deg,var(--green),var(--green))"></div>
+      </div>
+      <div class="emotion-value c-green">Excited</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>This feels like hiring a real analyst!</li>
+          <li>The AI suggestions save me from guessing thresholds</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>5 steps feels lengthy for first-time setup</li>
+          <li>Unclear what happens if I skip knowledge upload</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>One-click specialist templates for common use cases</li>
+          <li>Progressive onboarding (start simple, refine later)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PHASE 4: FIRST VALUE ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--green)">4</div>
+      <div class="phase-label">First Value & Aha Moment</div>
+      <div class="phase-duration">Day 5 — 10</div>
+    </div>
+
+    <div class="steps">
+      <div class="step key-moment" data-detail="The 'Aha!' moment">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+        <h4>Receives First Insight</h4>
+        <p>Specialist detects OTP dropped 12% on Route A due to a recurring departure delay pattern. Root cause: driver scheduling conflicts on Tuesdays.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Specialist Detail</span>
+          <span class="touchpoint">Insight Card</span>
+          <span class="touchpoint">Email Alert</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="AI-generated action plan">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg></div>
+        <h4>Reviews Recommendations</h4>
+        <p>Specialist recommends adjusting Tuesday schedules and adding a backup driver. Estimated impact: +8% OTP improvement worth $45K/month.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Recommendation Cards</span>
+          <span class="touchpoint">Impact Estimate</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="User takes action on insight">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9,11 12,14 22,4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h4>Approves & Implements Action</h4>
+        <p>Approves the recommendation, marks it as "implementing." The specialist begins tracking whether OTP actually improves after the change.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Approve Button</span>
+          <span class="touchpoint">ROI Tracking</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Explores conversational AI">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <h4>Asks Follow-Up via AI Assistant</h4>
+        <p>Opens the AI Assistant and asks "What other routes have similar Tuesday delay patterns?" Gets an instant streaming analysis with data visualization.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">AI Assistant</span>
+          <span class="touchpoint">Streaming Response</span>
+          <span class="touchpoint">Inline Charts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:90%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div>
+      </div>
+      <div class="emotion-value c-green">Delighted</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>This caught something I would have missed for weeks!</li>
+          <li>The natural language analysis is incredibly powerful</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>Want to share this insight with my team easily</li>
+          <li>ROI tracking feels manual; wish it auto-measured</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>One-click share to Slack/email from insight card</li>
+          <li>Automated before/after ROI measurement</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PHASE 5: DAILY USE & EXPANSION ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--purple)">5</div>
+      <div class="phase-label">Daily Engagement & Expansion</div>
+      <div class="phase-duration">Week 2 — 4</div>
+    </div>
+
+    <div class="steps">
+      <div class="step" data-detail="Morning routine with Galen">
+        <div class="step-icon bg-purple"><svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+        <h4>Morning Briefing Ritual</h4>
+        <p>Opens the Home Dashboard each morning. Checks overnight insights, pending actions, and specialist status at a glance. Replaces the old spreadsheet review.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Home Dashboard</span>
+          <span class="touchpoint">Morning Briefing</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Scales to more domains">
+        <div class="step-icon bg-purple"><svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+        <h4>Hires More Specialists</h4>
+        <p>Impressed by OTP specialist results, hires Revenue Optimizer, NPS Analyzer, and Fleet Health Monitor. Each specialist covers a different business domain.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Specialist Grid</span>
+          <span class="touchpoint">Domain Coverage</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Tracks metric health">
+        <div class="step-icon bg-purple"><svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div>
+        <h4>Monitors Metrics Dashboard</h4>
+        <p>Follows 15+ metrics. Uses the Relationships tab to understand how driver metrics feed into outcome metrics. Sets targets for the quarter.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Following Tab</span>
+          <span class="touchpoint">Relationships</span>
+          <span class="touchpoint">Targets</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Deep-dives with AI">
+        <div class="step-icon bg-purple"><svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></div>
+        <h4>Regular AI Assistant Conversations</h4>
+        <p>Uses @mentions to reference specialists and metrics in conversations. Asks complex questions like "How did the schedule change impact Route A revenue?"</p>
+        <div class="touchpoints">
+          <span class="touchpoint">@Mentions</span>
+          <span class="touchpoint">Prompt Library</span>
+          <span class="touchpoint">Chat History</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:85%;background:linear-gradient(90deg,var(--purple),var(--accent-light))"></div>
+      </div>
+      <div class="emotion-value c-purple">Confident</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>My team should have access to this too</li>
+          <li>I want to see cross-domain correlations</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>No team/role-based access yet</li>
+          <li>Specialists can't talk to each other (siloed)</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>Multi-user collaboration with role-based views</li>
+          <li>Cross-specialist insight correlation engine</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ PHASE 6: VALUE REALIZATION ═══════ -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:var(--green)">6</div>
+      <div class="phase-label">Value Realization & Advocacy</div>
+      <div class="phase-duration">Month 2+</div>
+    </div>
+
+    <div class="steps">
+      <div class="step" data-detail="Quantified business impact">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <h4>Measures ROI</h4>
+        <p>Reviews specialist performance dashboard. OTP improved 11%, saving $180K in penalties. NPS up 8 points from proactive issue resolution. 12 hours/week saved on reporting.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Performance Tab</span>
+          <span class="touchpoint">ROI Dashboard</span>
+        </div>
+      </div>
+
+      <div class="step" data-detail="Expands to full organization">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+        <h4>Presents to Leadership</h4>
+        <p>Uses executive reporting skill to generate board-ready reports. Shares concrete ROI numbers and proposes org-wide rollout of Galen across all departments.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Executive Reports</span>
+          <span class="touchpoint">Stakeholder Presentation</span>
+        </div>
+      </div>
+
+      <div class="step key-moment" data-detail="Full organizational adoption">
+        <div class="step-icon bg-green"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h4>Organization-Wide Adoption</h4>
+        <p>Finance, Commercial, and Customer teams each hire their own specialists. Galen becomes the central intelligence layer for the entire organization.</p>
+        <div class="touchpoints">
+          <span class="touchpoint">Multi-Team Rollout</span>
+          <span class="touchpoint">Settings</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion -->
+    <div class="emotion-bar">
+      <div class="emotion-label">Sentiment</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:95%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div>
+      </div>
+      <div class="emotion-value c-green">Advocate</div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-row">
+      <div class="insight-card thoughts">
+        <h5>Thoughts</h5>
+        <ul>
+          <li>How did we operate without this before?</li>
+          <li>I need to integrate this with our ERP next</li>
+        </ul>
+      </div>
+      <div class="insight-card pains">
+        <h5>Pain Points</h5>
+        <ul>
+          <li>Need SSO and admin controls for enterprise rollout</li>
+          <li>Want API access for custom integrations</li>
+        </ul>
+      </div>
+      <div class="insight-card opportunities">
+        <h5>Opportunities</h5>
+        <ul>
+          <li>Enterprise plan with SSO, RBAC, and audit logs</li>
+          <li>API and webhook integrations for ERP/CRM</li>
+          <li>Customer success program for expansion</li>
+          <li>Community for specialist template sharing</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer>
+  Galen v0 User Journey Map &middot; Generated from codebase analysis &middot; 6 phases &middot; 24 touchpoints
+</footer>
+
+</body>
+</html>

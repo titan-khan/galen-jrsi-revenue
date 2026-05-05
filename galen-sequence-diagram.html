@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Galen v0 — Sequence Diagrams</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0B1120;
+    --surface: #111827;
+    --surface2: #1E293B;
+    --border: #1E293B;
+    --border-accent: #334155;
+    --text: #F1F5F9;
+    --text-muted: #94A3B8;
+    --text-dim: #64748B;
+    --accent: #6366F1;
+    --accent-light: #818CF8;
+    --accent-glow: rgba(99,102,241,.12);
+    --green: #22C55E;
+    --amber: #F59E0B;
+    --cyan: #06B6D4;
+    --purple: #A855F7;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .header {
+    text-align: center;
+    padding: 48px 24px 20px;
+    position: relative;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -120px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: .9rem;
+    max-width: 560px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .tab-nav {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px 24px 0;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: .8rem;
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .tab-btn:hover {
+    border-color: var(--border-accent);
+    color: var(--text);
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .diagram-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    display: none;
+  }
+  .diagram-section.active { display: block; }
+
+  .section-header {
+    margin-bottom: 24px;
+  }
+  .section-header h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .section-header p {
+    color: var(--text-muted);
+    font-size: .85rem;
+  }
+
+  .diagram-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    overflow-x: auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,.3);
+  }
+
+  .diagram-card .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  .notes {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 18px;
+  }
+  .note-card h4 {
+    font-size: .8rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .note-card p {
+    font-size: .78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .note-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    color: var(--text-dim);
+    font-size: .78rem;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 768px) {
+    .header h1 { font-size: 1.5rem; }
+    .diagram-card { padding: 16px 8px; }
+    .tab-btn { font-size: .72rem; padding: 6px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Galen v0 Sequence Diagrams</h1>
+  <p>System interaction flows across six core user journeys, derived from codebase analysis.</p>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('hire')">Hire Specialist</button>
+  <button class="tab-btn" onclick="showTab('execution')">Specialist Execution</button>
+  <button class="tab-btn" onclick="showTab('assistant')">AI Assistant</button>
+  <button class="tab-btn" onclick="showTab('metrics')">Metrics Monitoring</button>
+  <button class="tab-btn" onclick="showTab('recommendation')">Recommendation Flow</button>
+  <button class="tab-btn" onclick="showTab('overview')">Full Overview</button>
+</div>
+
+<!-- ═══════ DIAGRAM 1: HIRE SPECIALIST ═══════ -->
+<div id="tab-hire" class="diagram-section active">
+  <div class="section-header">
+    <h2>1. Hire Specialist — 5-Step Wizard</h2>
+    <p>The core onboarding flow where users create an AI specialist to monitor their business metrics continuously.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant Wizard
+    participant OrgCtx
+    participant AI
+    participant SpecCtx
+    participant DB
+
+    User->>Wizard: Open /specialists/new
+
+    rect rgb(30, 41, 59)
+    Note over Wizard: Step 1 Overview
+    Wizard->>OrgCtx: getBusinessViewConfigs()
+    OrgCtx-->>Wizard: Views list
+    User->>Wizard: Select business view
+    Wizard->>OrgCtx: getUseCaseCatalog()
+    OrgCtx-->>Wizard: Use case templates
+    User->>Wizard: Name specialist
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Wizard: Step 2 Scope
+    Wizard->>AI: fetchSuggestedMetrics()
+    AI-->>Wizard: Suggested metrics
+    User->>Wizard: Select main metric
+    User->>Wizard: Add key drivers
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Wizard: Step 3 Rules
+    Wizard->>AI: suggestRules()
+    AI-->>Wizard: Thresholds + severity
+    User->>Wizard: Configure alert rule
+    User->>Wizard: Set scope filter
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Wizard: Step 4 Knowledge
+    User->>Wizard: Upload SLA docs
+    User->>Wizard: Add instructions
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Wizard: Step 5 Alerts
+    User->>Wizard: Set channels
+    User->>Wizard: Set frequency
+    end
+
+    User->>Wizard: Click Hire Specialist
+    Wizard->>SpecCtx: createSpecialist(config)
+    SpecCtx->>DB: INSERT agents
+    DB-->>SpecCtx: specialist_id
+    SpecCtx-->>Wizard: Created
+
+    alt Run immediately
+        Wizard->>SpecCtx: runSpecialist(id)
+        SpecCtx->>DB: INSERT agent_runs
+    end
+
+    Wizard-->>User: Show detail page
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> Key Decision</h4>
+      <p>Business view selection in Step 1 drives which metrics appear in Step 2 and which rules are offered in Step 3.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--green)"></div> AI Suggestions</h4>
+      <p>The system auto-suggests metrics, drivers, and monitoring rules based on the selected business view.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--amber)"></div> v0 Limitation</h4>
+      <p>Specialist creation UI is complete, but persistence to the agents table is not fully wired yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DIAGRAM 2: SPECIALIST EXECUTION ═══════ -->
+<div id="tab-execution" class="diagram-section">
+  <div class="section-header">
+    <h2>2. Specialist Execution Flow</h2>
+    <p>How an AI specialist runs an analysis cycle — from data query through insight generation and streaming results.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant UI as Detail Page
+    participant Svc as RunService
+    participant DB
+    participant Edge as Edge Fn
+    participant Claude
+
+    User->>UI: Click Run Now
+    UI->>Svc: runSpecialist(id)
+
+    rect rgb(30, 41, 59)
+    Note over Svc: Phase 1 Prepare
+    Svc->>DB: Fetch config + rules
+    DB-->>Svc: Scope, rules, knowledge
+    Svc->>DB: Fetch skill definition
+    DB-->>Svc: Frontmatter + body
+    Svc->>DB: INSERT skill_executions
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Svc: Phase 2 Query Data
+    Svc->>DB: Query fact_trip
+    DB-->>Svc: OTP and delay data
+    Svc->>DB: Query dim tables
+    DB-->>Svc: Routes, drivers
+    Svc->>Svc: Pre-compute stats
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Edge: Phase 3 AI Analysis
+    Svc->>Edge: POST /execute-skill
+    Edge->>Edge: Build system prompt
+    Edge->>Claude: Stream request
+
+    loop SSE Streaming
+        Claude-->>Edge: Delta chunk
+        Edge-->>UI: Server-Sent Event
+    end
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Svc: Phase 4 Persist
+    Claude-->>Edge: Final response
+    Edge->>DB: Store insights
+    Edge->>DB: Store recommendations
+    Edge-->>Svc: Complete
+    end
+
+    Svc->>DB: UPDATE agent_runs
+    Svc-->>UI: Done
+    UI-->>User: Summary + actions
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--cyan)"></div> Progressive Disclosure</h4>
+      <p>Skills use 3 levels: frontmatter (always cached), body (lazy-loaded), resources (on demand).</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> SSE Streaming</h4>
+      <p>Responses stream in real-time with progress tracking: phase, chunks received, estimated completion.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--amber)"></div> Skill Pipelines</h4>
+      <p>Architecture supports chaining skills in sequence but pipeline execution is not yet wired in v0.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DIAGRAM 3: AI ASSISTANT ═══════ -->
+<div id="tab-assistant" class="diagram-section">
+  <div class="section-header">
+    <h2>3. AI Assistant Conversation Flow</h2>
+    <p>Natural language analysis with intent detection, automatic data retrieval, and streaming responses.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant Chat
+    participant Intent
+    participant Builder as Context Builder
+    participant DB
+    participant Edge as Edge Fn
+    participant Claude
+
+    User->>Chat: Type message with @mention
+    Chat->>Chat: Parse @mentions
+    User->>Chat: Send question
+    Chat->>DB: Save user message
+
+    rect rgb(30, 41, 59)
+    Note over Intent: Intent Detection
+    Chat->>Intent: detectIntent(msg)
+    Intent->>Intent: Score 8 categories
+    Intent-->>Chat: Top intents
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Builder: Context Injection
+    Chat->>Builder: buildQueryContext()
+    Builder->>DB: Query fact tables
+    DB-->>Builder: Trip, revenue data
+    Builder->>DB: Query dim tables
+    DB-->>Builder: Routes, drivers
+    Builder->>Builder: Deduplicate + stats
+    Builder-->>Chat: Data context
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Edge: AI Response
+    Chat->>Edge: POST /assistant
+    Edge->>Claude: Stream request
+
+    loop Streaming
+        Claude-->>Edge: Text delta
+        Edge-->>Chat: SSE event
+    end
+
+    Claude-->>Edge: Chart spec
+    Edge-->>Chat: Render chart
+    end
+
+    Chat->>DB: Save assistant message
+    Chat-->>User: Response + chart
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> 8 Intent Categories</h4>
+      <p>revenue, nps, operations, fleet, funnel, agents, general, metadata. Each maps to specific database tables.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--green)"></div> @Mention System</h4>
+      <p>Users can @mention specialists and metrics. The mention system resolves IDs and injects relevant data.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--cyan)"></div> Rich Responses</h4>
+      <p>Includes inline Vega-Lite charts, expandable thinking steps, source attribution, and action buttons.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DIAGRAM 4: METRICS MONITORING ═══════ -->
+<div id="tab-metrics" class="diagram-section">
+  <div class="section-header">
+    <h2>4. Metrics Monitoring & Definition</h2>
+    <p>How users browse, follow, define, and track metrics through the Metrics Hub.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant Hub as Metrics Hub
+    participant MetCtx
+    participant RelCtx
+    participant Def as Definition Page
+    participant DB
+
+    rect rgb(30, 41, 59)
+    Note over Hub: Browse and Follow
+    User->>Hub: Open /metrics
+    Hub->>MetCtx: loadMetrics()
+    MetCtx->>DB: SELECT metrics
+    DB-->>MetCtx: Definitions + data
+    MetCtx-->>Hub: Metrics list
+    User->>Hub: Click Follow on NPS
+    Hub->>MetCtx: followMetric(id)
+    MetCtx->>DB: UPDATE follows
+    Hub-->>User: Added to Following
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Hub: Relationships
+    User->>Hub: Open Relationships tab
+    Hub->>RelCtx: loadMetricTree()
+    RelCtx->>DB: Fetch hierarchy
+    DB-->>RelCtx: Parent-child tree
+    RelCtx-->>Hub: Tree data
+    Hub-->>User: Visual metric tree
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Def: Define New Metric
+    User->>Hub: Click Create Metric
+    Hub->>Def: Navigate to /metrics/new
+    User->>Def: Set name + source
+    User->>Def: Set aggregation + granularity
+    User->>Def: Set sentiment + filters
+    User->>Def: Set target
+    User->>Def: Enable insight types
+    Def->>Def: Live preview
+    User->>Def: Click Save
+    Def->>MetCtx: createMetric(def)
+    MetCtx->>DB: INSERT metric
+    DB-->>MetCtx: metric_id
+    Def-->>User: Metric created
+    end
+
+    rect rgb(30, 41, 59)
+    Note over Hub: Period Filtering
+    User->>Hub: Set date range
+    User->>Hub: Select YoY comparison
+    Hub->>MetCtx: updateFilters()
+    MetCtx->>DB: Re-query data
+    DB-->>MetCtx: Updated values
+    Hub-->>User: Refreshed dashboard
+    end
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> Metric Types</h4>
+      <p>Four types: actionable, result, observational, experimental. Each drives different specialist behaviors.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--green)"></div> Status System</h4>
+      <p>Metrics show healthy, warning, or critical status based on target thresholds and anomaly detection.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DIAGRAM 5: RECOMMENDATION FLOW ═══════ -->
+<div id="tab-recommendation" class="diagram-section">
+  <div class="section-header">
+    <h2>5. Recommendation Approval & ROI Tracking</h2>
+    <p>From AI-generated recommendation through approval, implementation, and measured business impact.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant Detail as Specialist Detail
+    participant RecCtx as Recommendations
+    participant SpecCtx as Specialists
+    participant DB
+    participant ROI as ROI Tracker
+
+    rect rgb(30, 41, 59)
+    Note over Detail: Load Recommendations
+    Detail->>DB: Fetch recommendations
+    DB-->>Detail: Priority, effort, impact
+    Detail-->>User: Recommendation cards
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: Approval Flow
+    User->>Detail: Review details
+    User->>Detail: Click Approve
+    Detail->>RecCtx: approve(rec_id)
+    RecCtx->>DB: UPDATE status approved
+    RecCtx->>SpecCtx: updatePerformance()
+    SpecCtx->>DB: UPDATE approval rate
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: Implementation
+    User->>Detail: Mark Implementing
+    Detail->>RecCtx: updateStatus()
+    RecCtx->>DB: UPDATE implementing
+
+    User->>Detail: Mark Completed
+    Detail->>RecCtx: updateStatus()
+    RecCtx->>DB: UPDATE completed
+    end
+
+    rect rgb(30, 41, 59)
+    Note over ROI: ROI Measurement
+    ROI->>DB: Query baseline metrics
+    DB-->>ROI: Before: OTP 82%
+    ROI->>DB: Query current metrics
+    DB-->>ROI: After: OTP 90%
+    ROI->>ROI: Calculate delta +8%
+    ROI->>DB: UPDATE impact + value
+    end
+
+    ROI->>SpecCtx: updatePerformance()
+    SpecCtx->>DB: UPDATE value delivered
+    Detail-->>User: ROI dashboard
+
+    rect rgb(30, 41, 59)
+    Note over User: Alt: Reject
+    User->>Detail: Click Reject
+    Detail->>RecCtx: reject(rec_id)
+    RecCtx->>DB: UPDATE rejected
+    RecCtx->>SpecCtx: Adjust accuracy
+    end
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--green)"></div> Status Transitions</h4>
+      <p>pending, approved, implementing, completed (or rejected). Each transition updates specialist performance.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> Feedback Loop</h4>
+      <p>Approval rates and ROI data feed back into specialist performance scores for evaluation.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--amber)"></div> v0 State</h4>
+      <p>ROI tracking UI exists, but automated before/after measurement is not connected to live data yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DIAGRAM 6: FULL OVERVIEW ═══════ -->
+<div id="tab-overview" class="diagram-section">
+  <div class="section-header">
+    <h2>6. Full System Overview</h2>
+    <p>High-level architecture showing how all components interact across the entire platform.</p>
+  </div>
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant UI as Frontend
+    participant Ctx as Contexts
+    participant Svc as Services
+    participant Edge as Edge Fn
+    participant DB
+    participant Claude
+
+    Note over User,Claude: SESSION START
+
+    rect rgb(30, 41, 59)
+    Note over UI: App Init
+    UI->>Ctx: Mount providers
+    Ctx->>DB: Load state
+    DB-->>Ctx: Specialists, metrics, skills
+    Ctx-->>UI: App ready
+    UI-->>User: Home Dashboard
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: Data Ingestion
+    User->>UI: Open data connector
+    User->>UI: Upload CSV
+    UI->>Svc: processCSV()
+    Svc->>DB: INSERT fact tables
+    DB-->>Svc: Ingested
+    Svc-->>UI: Complete
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: Specialist Lifecycle
+    User->>UI: Hire specialist
+    UI->>Ctx: createSpecialist()
+    Ctx->>DB: Persist config
+    User->>UI: Run specialist
+    UI->>Svc: runSpecialist()
+    Svc->>Edge: POST /execute-skill
+    Edge->>DB: Query data
+    DB-->>Edge: Facts + dimensions
+    Edge->>Claude: Analyze
+    Claude-->>Edge: Insights
+    Edge->>DB: Store results
+    Edge-->>UI: SSE stream
+    UI-->>User: Summary + actions
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: AI Assistant
+    User->>UI: Ask question
+    UI->>Svc: Detect intent
+    Svc->>DB: Query tables
+    DB-->>Svc: Data context
+    Svc->>Edge: POST /assistant
+    Edge->>Claude: Stream response
+    Claude-->>UI: Analysis + charts
+    UI-->>User: Rich response
+    end
+
+    rect rgb(30, 41, 59)
+    Note over User: Metrics and Actions
+    User->>UI: Follow metrics
+    UI->>Ctx: Update preferences
+    Ctx->>DB: Persist
+    User->>UI: Approve recommendation
+    UI->>Ctx: Approve + track ROI
+    Ctx->>DB: Update status
+    UI-->>User: Value delivered
+    end
+
+    Note over User,Claude: CONTINUOUS LOOP
+    </pre>
+  </div>
+  <div class="notes">
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--accent)"></div> Architecture</h4>
+      <p>React 18 + TypeScript frontend, 10+ context providers, Supabase with 23 tables, Claude Sonnet via Edge Functions.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--green)"></div> Data Flow</h4>
+      <p>Star schema with 13-month rolling data across fact tables joined with dimension tables.</p>
+    </div>
+    <div class="note-card">
+      <h4><div class="note-dot" style="background:var(--purple)"></div> 9 AI Skills</h4>
+      <p>Revenue, NPS, root cause, operations, executive reporting, dashboards, visualization, data adapter, problem articulation.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Galen v0 Sequence Diagrams &middot; 6 interaction flows &middot; Generated from codebase analysis
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#6366F1',
+      primaryTextColor: '#F1F5F9',
+      primaryBorderColor: '#334155',
+      lineColor: '#64748B',
+      secondaryColor: '#1E293B',
+      tertiaryColor: '#111827',
+      noteBkgColor: '#1E293B',
+      noteTextColor: '#F1F5F9',
+      noteBorderColor: '#334155',
+      actorBkg: '#6366F1',
+      actorBorder: '#818CF8',
+      actorTextColor: '#FFFFFF',
+      actorLineColor: '#64748B',
+      signalColor: '#94A3B8',
+      signalTextColor: '#F1F5F9',
+      labelBoxBkgColor: '#1E293B',
+      labelBoxBorderColor: '#334155',
+      labelTextColor: '#F1F5F9',
+      loopTextColor: '#94A3B8',
+      activationBorderColor: '#818CF8',
+      activationBkgColor: '#1E293B',
+      sequenceNumberColor: '#FFFFFF',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+      fontSize: '12px'
+    },
+    sequence: {
+      diagramMarginX: 30,
+      diagramMarginY: 20,
+      actorMargin: 80,
+      width: 150,
+      height: 50,
+      boxMargin: 12,
+      boxTextMargin: 8,
+      noteMargin: 16,
+      messageMargin: 50,
+      mirrorActors: false,
+      useMaxWidth: false,
+      wrap: true,
+      wrapPadding: 16
+    }
+  });
+
+  function showTab(tabId) {
+    document.querySelectorAll('.diagram-section').forEach(function(s) {
+      s.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+      b.classList.remove('active');
+    });
+    document.getElementById('tab-' + tabId).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>
