@@ -1,0 +1,206 @@
+# =============================================================================
+# treatment_v1.4.yaml
+# Single source of truth untuk treatment recommendation per segmen.
+# Source: PKB Micro Segmentation PalangkaRaya v1.4 — Sheet 3 (Strategi & Program SADAR)
+#
+# Cara kerja:
+#   1. Python loader (11_load_pilot.py) load file ini
+#   2. Map setiap row registry ke 4 kolom treatment based on segmen_kepatuhan
+#   3. Denormalize ke gold.registry_enriched (4 kolom treatment_*)
+#
+# Update workflow:
+#   - Edit nilai di file ini
+#   - Re-run 11_load_pilot.py (akan regenerate registry_enriched dengan treatment baru)
+#   - One-shot pilot semantics: full reload acceptable
+# =============================================================================
+
+metadata:
+  framework_version: "1.4"
+  source: "PKB Micro Segmentation PalangkaRaya v1.4"
+  reference_date: "2025-05-01"  # untuk perhitungan durasi tunggakan
+  last_updated: "2026-05-04"
+
+# Treatment per segmen — lookup table
+# Setiap segmen punya 4 fields yang akan di-denormalize ke registry_enriched
+segments:
+
+  H1:
+    nama: "Patuh Aktif"
+    warna: "HIJAU"
+    durasi_tunggakan: "Belum jatuh tempo"
+    profil_perilaku: "Wajib pajak yang disiplin. Membayar sebelum atau pada saat jatuh tempo."
+
+    # 4 fields yang akan di-denormalize ke registry_enriched:
+    treatment_kanal_utama: >
+      WhatsApp otomatis (99.99% terjangkau)
+    treatment_kebijakan_amnesti: >
+      TIDAK ADA AMNESTI - segmen ini perlu dihargai bukan diringankan.
+      Pertimbangkan loyalitas: sertifikat digital "Wajib Pajak Taat",
+      pengurangan pajak tahun berikutnya untuk pembayaran lebih dari 30 hari
+      sebelum jatuh tempo, manfaat keselamatan dari Jasa Raharja.
+    treatment_aksi_utama: >
+      Rangkaian pengingat ramah 30/14/7 hari sebelum jatuh tempo.
+      Bahasa daerah (Dayak/Banjar) untuk kedekatan emosional.
+      Pantau read-rate, click-rate, conversion per gelombang pengingat.
+      Identifikasi WP progresif dengan multi-kendaraan untuk loyalty program.
+    treatment_perkiraan_konversi: "85-95%"
+
+  K1:
+    nama: "Baru Lewat Jatuh Tempo"
+    warna: "KUNING"
+    durasi_tunggakan: "1-90 hari + ada riwayat"
+    profil_perilaku: "Lupa atau sibuk. Niat membayar masih ada. Akumulasi denda kecil."
+
+    treatment_kanal_utama: >
+      WhatsApp (utama, 99.99% terjangkau) + SMS sebagai cadangan
+    treatment_kebijakan_amnesti: >
+      TIDAK ADA AMNESTI - denda <90 hari masih kecil dan berfungsi sebagai
+      pendorong alami untuk segera bertindak. Menghapus denda di tahap ini
+      menghilangkan insentif untuk membayar tepat waktu. Fokus pada
+      pengurangan friksi: perpanjangan jam layanan, optimasi pembayaran elektronik.
+    treatment_aksi_utama: >
+      WhatsApp pertama minggu 1 setelah jatuh tempo dengan nada mendesak
+      tetapi tidak menghakimi. Tindak lanjut hari ke-30 dan ke-60 dengan
+      peningkatan urgensi pesan. Alihkan ke SMS pada hari ke-45 bagi yang
+      tidak merespons WhatsApp. Analisis konversi per gelombang untuk
+      penyempurnaan waktu dan isi pesan.
+    treatment_perkiraan_konversi: "60-75%"
+
+  O1:
+    nama: "Mulai Mengabaikan"
+    warna: "ORANYE"
+    durasi_tunggakan: "91-365 hari + ada riwayat"
+    profil_perilaku: "Mulai lalai. Pajak tergeser dari prioritas. Denda mulai memberatkan."
+
+    treatment_kanal_utama: >
+      WhatsApp bertahap + SMS + Pemberitahuan kedekatan SAMSAT Keliling
+    treatment_kebijakan_amnesti: >
+      TIDAK ADA AMNESTI - denda 3-12 bulan masih seimbang dengan pelanggaran.
+      Pemberian amnesti terlalu dini menciptakan bahaya moral bagi segmen H1
+      dan K1. Intervensi yang tepat adalah mengurangi hambatan (SAMSAT Keliling,
+      perpanjangan jam, kemudahan pembayaran elektronik), bukan mengurangi kewajiban.
+    treatment_aksi_utama: >
+      Kampanye WhatsApp bertahap dengan 3 pesan dalam 6 minggu dengan
+      eskalasi bertingkat. Selaraskan jadwal SAMSAT Keliling dengan
+      kecamatan berkepadatan tinggi. Pemberitahuan berbasis lokasi saat
+      Keliling dekat penerima. Integrasi data ETLE untuk identifikasi
+      kendaraan yang masih beroperasi.
+    treatment_perkiraan_konversi: "35-50%"
+
+  M1:
+    nama: "Tidak Patuh Pasif"
+    warna: "MERAH"
+    durasi_tunggakan: "1-2 tahun + ada riwayat"
+    profil_perilaku: >
+      Pasif tidak membayar. Akumulasi denda menjadi penghalang nyata.
+      Total kewajiban bisa mendekati atau melebihi pokok PKB.
+
+    treatment_kanal_utama: >
+      WhatsApp (99.91% terjangkau) + Surat tagihan fisik (penguat) + SAMSAT Keliling
+    treatment_kebijakan_amnesti: >
+      AMNESTI PARSIAL - pengurangan denda PKB sebesar 50-75 persen.
+      Denda SWDKLLJ dikurangi proporsional. Pokok PKB dan SWDKLLJ TETAP
+      dibayar penuh. Berlaku 60 hari, satu kali. Pada durasi tunggakan
+      1-2 tahun, akumulasi denda bisa setara/melebihi pokok pajak —
+      pengurangan ini menurunkan ambang masuk kembali tanpa mengorbankan
+      prinsip pajak dasar harus tetap dipenuhi.
+    treatment_aksi_utama: >
+      Rancang regulasi amnesti parsial 60 hari. Hasilkan perhitungan denda
+      individual per kendaraan untuk isi pesan WhatsApp. Cetak dan
+      distribusikan surat tagihan fisik sebagai penguat. Aktifkan Duta Pajak
+      kelurahan via program Hayak Bahayau atau Huma Betang Mahaga. Validasi
+      setiap transaksi amnesti terhadap kriteria kelayakan.
+    treatment_perkiraan_konversi: "25-40%"
+
+  M2:
+    nama: "Tidak Patuh Kronis"
+    warna: "MERAH"
+    durasi_tunggakan: "2-5+ tahun + ada riwayat"
+    profil_perilaku: >
+      Ketidakpatuhan mengakar. Denda 2-4× pokok pajak. Tanpa intervensi
+      mendasar, kendaraan tidak akan pernah kembali ke sistem.
+
+    treatment_kanal_utama: >
+      WhatsApp (71% terjangkau, perlu kombinasi) + Surat fisik untuk 29%
+      tanpa nomor HP + Koordinasi kelurahan/RT-RW + Razia pasca-amnesti
+    treatment_kebijakan_amnesti: >
+      AMNESTI PENUH DENDA - seluruh denda PKB dan SWDKLLJ dihapuskan.
+      Tunggakan pokok historis dapat dinegosiasikan (cukup bayar tahun
+      berjalan + 1 tahun ke belakang). Berlaku 90 hari, satu kali.
+      WAJIB diikuti penegakan setelah deadline berakhir: razia dan tilang.
+      Pada 2-5 tahun, denda bisa 2-4× pokok — tanpa penghapusan penuh,
+      kendaraan ini tidak akan pernah kembali ke sistem.
+    treatment_aksi_utama: >
+      Rancang regulasi amnesti penuh denda 90 hari. Luncurkan kampanye
+      WhatsApp massal ke 71% kendaraan terjangkau. Koordinasikan
+      kelurahan/RT-RW untuk penjangkauan fisik 29% tanpa nomor HP.
+      Tempatkan SAMSAT Keliling di area konsentrasi tertinggi. Integrasikan
+      ETLE untuk deteksi kendaraan yang masih beroperasi. Terapkan kebijakan
+      "Tidak Bayar Pajak, Tidak Ada BBM" untuk kendaraan dinas. WAJIB
+      laksanakan razia + tilang setelah batas waktu berakhir.
+    treatment_perkiraan_konversi: "15-30%"
+
+  S1:
+    nama: "Belum Terdaftar"
+    warna: "ABU"
+    durasi_tunggakan: "Tidak pernah membayar (≤15 tahun)"
+    profil_perilaku: >
+      Pembelian tangan kedua tanpa balik nama. 97.5% sepeda motor.
+      Hanya 2% yang punya nomor HP tercatat.
+
+    treatment_kanal_utama: >
+      Berbasis komunitas (BUKAN digital): SAMSAT Keliling + RT/RW +
+      Kampanye kelurahan + Spanduk + Duta Pajak
+    treatment_kebijakan_amnesti: >
+      PENGURANGAN BEA BALIK NAMA (BBNKB) - pengurangan/penghapusan BBNKB
+      untuk mendorong registrasi formal. Denda tidak berlaku karena belum
+      pernah ada kewajiban PKB sebelumnya. Penghalang utama di sini adalah
+      biaya BBNKB, bukan denda. Setiap konversi menghasilkan aliran
+      pendapatan baru yang berulang setiap tahun. Berlaku 90 hari, sinkron
+      dengan amnesti M2.
+    treatment_aksi_utama: >
+      Rancang regulasi pengurangan BBNKB 90 hari (sync dengan M2).
+      Identifikasi titik konsentrasi melalui koordinasi kelurahan.
+      Tempatkan SAMSAT Keliling dengan kemampuan proses balik nama langsung
+      di lokasi. Jalankan kampanye komunitas via spanduk, RT/RW, Duta Pajak.
+      Libatkan BRILink, PT POS, BUMDES/koperasi sebagai titik layanan.
+      Sediakan terminal pembayaran luring-ke-daring untuk area tanpa sinyal.
+    treatment_perkiraan_konversi: "10-20%"
+
+  S2:
+    nama: "Kendaraan Hantu"
+    warna: "ABU"
+    durasi_tunggakan: "Tidak pernah membayar (>15 tahun) atau >5 tahun tunggakan + >20 tahun usia"
+    profil_perilaku: >
+      Diasumsikan sudah dibuang/rusak permanen/pindah wilayah tanpa mutasi.
+      Hanya 19% punya nomor HP tercatat.
+
+    treatment_kanal_utama: >
+      TIDAK ADA KAMPANYE - proses data internal saja. Mengirim pesan ke
+      kendaraan hantu merusak kredibilitas seluruh kampanye dan membuang
+      sumber daya.
+    treatment_kebijakan_amnesti: >
+      TIDAK ADA AMNESTI - bukan target kampanye. Yang diperlukan adalah
+      verifikasi registrasi: pencocokan silang dengan data Polri/Ditlantas,
+      penandaan untuk verifikasi fisik saat razia, atau prosedur penghapusan
+      data kendaraan yang terkonfirmasi tidak aktif >5 tahun.
+    treatment_aksi_utama: >
+      Tandai secara massal untuk peninjauan registrasi. Terbitkan satu
+      pemberitahuan administratif terakhir berupa surat fisik ke alamat
+      terakhir tercatat dengan batas respons 90 hari. Yang tidak merespons
+      menjadi kandidat pengarsipan/penghapusan. Yang merespons direklasifikasi
+      ke segmen M2 atau S1 dan dimasukkan ke kampanye yang sesuai. Lakukan
+      pencocokan silang dengan data kepolisian.
+    treatment_perkiraan_konversi: "Tidak berlaku - tujuan adalah kualitas data"
+
+# =============================================================================
+# Verification (untuk Python loader)
+# =============================================================================
+verification:
+  expected_segment_count: 7
+  expected_segments: [H1, K1, O1, M1, M2, S1, S2]
+  required_fields_per_segment:
+    - treatment_kanal_utama
+    - treatment_kebijakan_amnesti
+    - treatment_aksi_utama
+    - treatment_perkiraan_konversi

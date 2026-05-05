@@ -1,0 +1,346 @@
+# =============================================================================
+# L2 — CURATED DEFINITIONS
+# Layer purpose: Business definitions, formulas, conditional rules, units,
+#                precision, validation ranges
+# Pipeline phase: Phase 4 (Metrics Certification)
+# Built how: Semi-automated — formula reverse-engineering + human verification
+# Consumed by: Galen specialist untuk metric reasoning
+# =============================================================================
+
+metadata:
+  layer: "L2 — Curated Definitions"
+  version: "1.0"
+  framework_source: "PKB Micro Segmentation Palangka Raya v1.4"
+  reference_date: "2025-05-01"
+  generated: "2026-05-04"
+
+# =============================================================================
+# CORE METRICS (consumed by Galen Edge Functions + ad-hoc queries)
+# =============================================================================
+metrics:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # COMPLIANCE METRICS
+  # ─────────────────────────────────────────────────────────────────────────
+
+  segmen_distribution:
+    description: "Jumlah kendaraan per segmen kepatuhan"
+    formula: "COUNT(*) GROUP BY segmen_kepatuhan"
+    table: "gold.registry_enriched"
+    grain_options: [provincial, kabupaten, jenken]
+    unit: "count (kendaraan)"
+    precision: integer
+    validation_range:
+      total_rows: 427977
+      tolerance_pct: 0.5
+    expected_distribution:
+      H1: 107967
+      K1: 33789
+      O1: 32916
+      M1: 25039
+      M2: 140966
+      S1: 12756
+      S2: 74544
+    aliases: ["distribusi segmen", "jumlah per segmen", "populasi segmen"]
+    galen_default_chart: "horizontal bar"
+
+  arrears_rate:
+    description: "Persentase kendaraan dengan tunggakan (durasi_tunggakan_days > 0)"
+    formula: "COUNT(*) FILTER (WHERE durasi_tunggakan_days > 0) * 100.0 / COUNT(*)"
+    table: "gold.registry_enriched"
+    grain_options: [provincial, kabupaten, segmen]
+    unit: "percentage"
+    precision: 2_decimal
+    validation_range:
+      min: 0
+      max: 100
+    aliases: ["tingkat tunggakan", "persen menunggak", "rasio arrears"]
+    notes: |
+      Untuk segmen-level: H1 = 0%, K1-M2 = 100% by definition.
+      Untuk kabupaten-level: meaningful comparison antar wilayah.
+
+  phone_coverage_pct:
+    description: "Persentase kendaraan dengan nomor HP terdaftar (digital reach)"
+    formula: "COUNT(*) FILTER (WHERE has_phone = TRUE) * 100.0 / COUNT(*)"
+    table: "gold.registry_enriched"
+    grain_options: [provincial, kabupaten, segmen, jenken]
+    unit: "percentage"
+    precision: 2_decimal
+    validation_range:
+      min: 0
+      max: 100
+    expected_per_segmen:
+      H1: 99.99
+      K1: 99.99
+      O1: 99.98
+      M1: 99.91
+      M2: 71.08
+      S1: 1.59
+      S2: 19.24
+    aliases: ["jangkauan digital", "phone availability", "% punya HP"]
+    decision_rule: |
+      Jika phone_coverage > 95% → digital-first OK
+      Jika 50-95% → hybrid (digital + offline)
+      Jika < 50% → community-based (RT/RW, Keliling)
+
+  motor_share_pct:
+    description: "Persentase kendaraan jenis sepeda motor"
+    formula: "COUNT(*) FILTER (WHERE kode_jenken = 'R') * 100.0 / COUNT(*)"
+    table: "gold.registry_enriched"
+    grain_options: [provincial, segmen, kabupaten]
+    unit: "percentage"
+    precision: 2_decimal
+    aliases: ["pangsa motor", "% sepeda motor"]
+    notes: "Provincial level ~82%, M2 segment ~91% (motor dominan), H1 ~70% (lebih balance)."
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # REVENUE METRICS
+  # ─────────────────────────────────────────────────────────────────────────
+
+  total_potensi_pkb:
+    description: "Total estimasi pokok PKB tahunan dari registry enriched"
+    formula: "SUM(est_pkb_per_kendaraan)"
+    table: "gold.registry_enriched"
+    grain_options: [provincial, segmen, kabupaten, jenken]
+    unit: "IDR"
+    precision: integer
+    validation_range:
+      provincial_estimate: ["80000000000", "120000000000"]  # ~Rp 80-120 M
+    aliases: ["total potensi pajak", "PKB potential", "potensi pendapatan"]
+    notes: "Pokok PKB only — tidak termasuk SWDKLLJ, BBNKB, opsen. Untuk full revenue, JOIN dengan transaksi_fact."
+
+  rata_pkb_per_kendaraan:
+    description: "Rata-rata pokok PKB per kendaraan di segmen"
+    formula: "AVG(est_pkb_per_kendaraan)"
+    table: "gold.registry_enriched"
+    grain_options: [segmen, jenken, kabupaten]
+    unit: "IDR"
+    precision: integer
+    expected_per_segmen:
+      H1: 500500
+      K1: 532758
+      O1: 434535
+      M1: 390850
+      M2: 240812
+      S1: 156855
+      S2: 259285
+    aliases: ["avg PKB", "PKB rata-rata"]
+    insight: |
+      M2 punya avg PKB terendah (Rp 240K) karena dominan motor (91%).
+      H1 dan K1 punya avg tertinggi (Rp 500K) karena lebih balanced fleet mix.
+
+  expected_recovery_konservatif:
+    description: "Estimasi pendapatan tambahan skenario konservatif (Sheet 6)"
+    formula: "SUM(est_pendapatan_idr) FILTER (WHERE scenario_label = 'Konservatif')"
+    table: "ref.revenue_scenario"
+    grain_options: [provincial, segmen]
+    unit: "IDR"
+    precision: integer
+    validation_range:
+      total_provincial: 23544495363  # ~Rp 23.5 M
+    aliases: ["recovery konservatif", "potensi tambahan konservatif"]
+    notes: "Berdasarkan target konversi K1 60%, O1 35%, M1 25%, M2 15%, S1 10%."
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # SWDKLLJ METRICS (kalau transaksi_fact loaded)
+  # ─────────────────────────────────────────────────────────────────────────
+
+  swdkllj_total_realized:
+    description: "Total SWDKLLJ income realized: pokok + tunggakan + denda"
+    formula: "SUM(pokok_swdkllj + tunggakan_pokok_swdkllj + denda_swdkllj)"
+    table: "gold.transaksi_fact"
+    grain_options: [provincial, kabupaten, monthly]
+    unit: "IDR"
+    precision: integer
+    validation_range:
+      provincial_2025_estimate: ["55000000000", "65000000000"]  # ~Rp 55-65 M
+    aliases: ["realized SWDKLLJ", "pendapatan JR aktual"]
+
+  swdkllj_recovery_share:
+    description: "% SWDKLLJ income yang berasal dari recovery (tunggakan + denda)"
+    formula: |
+      SUM(tunggakan_pokok_swdkllj + denda_swdkllj)
+      / SUM(pokok_swdkllj + tunggakan_pokok_swdkllj + denda_swdkllj) * 100
+    table: "gold.transaksi_fact"
+    grain_options: [provincial, kabupaten]
+    unit: "percentage"
+    precision: 1_decimal
+    expected_provincial: 31.0  # ~31% dari recovery
+    insight: "Indicator basis tertanggung yang masih telat bayar multi-year."
+
+  denda_swdkllj_total:
+    description: "Total denda SWDKLLJ collected (penalty late payment)"
+    formula: "SUM(denda_swdkllj)"
+    table: "gold.transaksi_fact"
+    grain_options: [provincial, kabupaten, monthly]
+    unit: "IDR"
+    precision: integer
+    aliases: ["denda penalty", "penalty SWDKLLJ"]
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # SEGMEN MIGRATION (advanced — multi-period analysis)
+  # ─────────────────────────────────────────────────────────────────────────
+
+  segmen_migration_rate:
+    description: "Persentase kendaraan yang berpindah segmen antar period"
+    formula: |
+      COUNT(*) FILTER (WHERE segmen_t1 != segmen_t0) * 100.0 / COUNT(*)
+    table: "gold.registry_enriched (multi-period join)"
+    grain_options: [provincial, segmen]
+    unit: "percentage"
+    precision: 2_decimal
+    notes: "Healthy state: net flow toward H1/K1 (basis pyramid grows). Available setelah ada >1 period data."
+
+# =============================================================================
+# CLASSIFICATION RULES (encoded business logic)
+# =============================================================================
+classification_rules:
+
+  segmen_kepatuhan:
+    description: "7-segment classification per framework v1.4"
+    inputs:
+      - durasi_tunggakan_days
+      - has_payment_history
+      - usia_kendaraan
+    output_values: [H1, K1, O1, M1, M2, S1, S2]
+    rules:
+      - if: "NOT has_payment_history AND usia_kendaraan <= 15"
+        then: "S1"
+        rationale: "Tangan kedua tanpa balik nama — penghalang BBNKB"
+      - if: "NOT has_payment_history AND usia_kendaraan > 15"
+        then: "S2"
+        rationale: "Likely tidak ada fisik (ghost vehicle)"
+      - if: "durasi_tunggakan_days IS NULL OR durasi_tunggakan_days <= 0"
+        then: "H1"
+        rationale: "Belum jatuh tempo / on time"
+      - if: "durasi_tunggakan_days BETWEEN 1 AND 90"
+        then: "K1"
+        rationale: "Baru lewat — denda masih kecil"
+      - if: "durasi_tunggakan_days BETWEEN 91 AND 365"
+        then: "O1"
+        rationale: "Mulai mengabaikan — denda 3-12 bulan"
+      - if: "durasi_tunggakan_days BETWEEN 366 AND 730"
+        then: "M1"
+        rationale: "Tidak patuh pasif — denda jadi penghalang"
+      - if: "durasi_tunggakan_days BETWEEN 731 AND 1825"
+        then: "M2"
+        rationale: "Tidak patuh kronis — 2-5 thn tunggakan"
+      - if: "durasi_tunggakan_days > 1825 AND usia_kendaraan < 20"
+        then: "M2"
+        rationale: "Tunggakan >5 thn tapi kendaraan masih muda — kemungkinan masih beroperasi"
+      - if: "durasi_tunggakan_days > 1825 AND usia_kendaraan >= 20"
+        then: "S2"
+        rationale: "Reklasifikasi ke ghost karena tunggakan kronis + kendaraan tua"
+    edge_case_note: |
+      Boundary case: usia tepat 20 thn dengan tunggakan >5 thn → S2.
+      Framework v1.4 ambiguous (M2 says "<20 thn", S2 says ">20 thn").
+      Decision: usia >= 20 → S2 (conservative — kemungkinan tidak beroperasi tinggi).
+
+  importance_tier:
+    description: "Fiscal importance based on PKB value (optional secondary axis)"
+    formula: |
+      CASE
+        WHEN est_pkb_per_kendaraan < 250000 THEN 'L_Rendah'
+        WHEN est_pkb_per_kendaraan < 1000000 THEN 'M_Sedang'
+        ELSE 'H_Tinggi'
+      END
+    output_values: [L_Rendah, M_Sedang, H_Tinggi]
+    notes: "Tidak di-store di registry_enriched, computed at query time kalau diperlukan."
+
+# =============================================================================
+# DERIVED COLUMNS (computed di Python loader, stored di Supabase)
+# =============================================================================
+derived_columns:
+
+  durasi_tunggakan_days:
+    formula: "DATE '2025-05-01' - sd_notice"
+    unit: "days"
+    type: integer
+    nullable: true
+    notes: "NULL kalau sd_notice NULL. Negatif = belum jatuh tempo."
+
+  has_payment_history:
+    formula: "tanggal_transaksi IS NOT NULL"
+    unit: boolean
+    notes: "TRUE = pernah transact. FALSE = belum pernah."
+
+  usia_kendaraan:
+    formula: "EXTRACT(YEAR FROM DATE '2025-05-01') - thn_buat"
+    unit: "years"
+    type: integer
+    nullable: true
+    validation_range:
+      typical_min: 0
+      typical_max: 50
+      anomaly_threshold_min: -10  # data error indicator
+      anomaly_threshold_max: 100
+
+  has_phone:
+    formula: "no_hp_masked IS NOT NULL AND TRIM(no_hp_masked) <> ''"
+    unit: boolean
+
+# =============================================================================
+# CONDITIONAL RULES (decision logic for Galen)
+# =============================================================================
+decision_rules:
+
+  amnesti_eligibility:
+    description: "Apakah segmen X eligible amnesti?"
+    rules:
+      H1: { eligible: false, rationale: "Loyalty program, no amnesty" }
+      K1: { eligible: false, rationale: "Denda <90 hari masih kecil" }
+      O1: { eligible: false, rationale: "Bahaya moral" }
+      M1: { eligible: true, type: "PARSIAL_50_75", duration_days: 60 }
+      M2: { eligible: true, type: "PENUH_DENDA", duration_days: 90, requires_post_enforcement: true }
+      S1: { eligible: true, type: "PENGURANGAN_BBNKB", duration_days: 90 }
+      S2: { eligible: false, rationale: "Data cleanup target, not campaign" }
+
+  channel_routing:
+    description: "Channel mix berdasarkan phone_coverage_pct"
+    rules:
+      - if: "phone_coverage_pct >= 95"
+        then: "digital-first (WhatsApp + SMS cadangan)"
+      - if: "phone_coverage_pct BETWEEN 50 AND 95"
+        then: "hybrid (digital + kelurahan + surat fisik)"
+      - if: "phone_coverage_pct < 50"
+        then: "community-based (RT/RW, Duta Pajak, SAMSAT Keliling)"
+
+# =============================================================================
+# UNITS & FORMATTING (untuk Galen output presentation)
+# =============================================================================
+units:
+  IDR:
+    format_default: "Rp {:,.0f}"
+    format_short:
+      threshold_million: 1000000
+      template_million: "Rp {value/1e6:.1f} juta"
+      threshold_billion: 1000000000
+      template_billion: "Rp {value/1e9:.2f} M"
+      threshold_trillion: 1000000000000
+      template_trillion: "Rp {value/1e12:.2f} T"
+
+  percentage:
+    format: "{:.2f}%"
+    range: [0, 100]
+
+  count:
+    format: "{:,d}"
+    locale: "id-ID"  # Indonesian thousand separator
+
+  days:
+    format: "{:,d} hari"
+
+# =============================================================================
+# CROSS-REFERENCES
+# =============================================================================
+references:
+  framework_source: "PKB Micro Segmentation Palangka Raya v1.4 (Excel, 7 sheets)"
+  related_documents:
+    - "L1_schema_metadata.md"
+    - "L3_formula_lineage.md"
+    - "L4_tribal_knowledge.md"
+    - "treatment_v1.4.yaml"
+  paper_basis:
+    - "Saptono & Khozen (2021) — CRM"
+    - "Ayres & Braithwaite (1992) — Responsive Regulation"
+    - "OECD (2004) — Compliance Risk Management Guide"

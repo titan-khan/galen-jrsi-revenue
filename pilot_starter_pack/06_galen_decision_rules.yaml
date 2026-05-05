@@ -1,0 +1,259 @@
+# Decision rules untuk Galen specialist
+# Format: machine-readable + human-reviewable
+# Source: PKB Micro Segmentation v1.4
+
+version: "1.4"
+reference_date: "2025-05-01"
+
+# =============================================================================
+# CLASSIFICATION RULES — 7 segmen
+# Order matters: first match wins
+# =============================================================================
+classification_rules:
+  - id: S1_belum_terdaftar
+    condition: "tanggal_transaksi IS NULL AND usia_kendaraan <= 15"
+    output: "S1"
+    priority: 1
+
+  - id: S2_kendaraan_hantu_no_history
+    condition: "tanggal_transaksi IS NULL AND usia_kendaraan > 15"
+    output: "S2"
+    priority: 2
+
+  - id: H1_patuh_aktif
+    condition: "sd_notice IS NULL OR (reference_date - sd_notice) <= 0"
+    output: "H1"
+    priority: 3
+
+  - id: K1_baru_lewat
+    condition: "(reference_date - sd_notice) BETWEEN 1 AND 90"
+    output: "K1"
+    priority: 4
+
+  - id: O1_mulai_mengabaikan
+    condition: "(reference_date - sd_notice) BETWEEN 91 AND 365"
+    output: "O1"
+    priority: 5
+
+  - id: M1_tidak_patuh_pasif
+    condition: "(reference_date - sd_notice) BETWEEN 366 AND 730"
+    output: "M1"
+    priority: 6
+
+  - id: M2_tidak_patuh_kronis_2_5_thn
+    condition: "(reference_date - sd_notice) BETWEEN 731 AND 1825"
+    output: "M2"
+    priority: 7
+
+  - id: M2_tidak_patuh_kronis_5_plus_thn
+    condition: "(reference_date - sd_notice) > 1825 AND usia_kendaraan < 20"
+    output: "M2"
+    priority: 8
+
+  - id: S2_reklasifikasi_kronis
+    condition: "(reference_date - sd_notice) > 1825 AND usia_kendaraan >= 20"
+    output: "S2"
+    priority: 9
+
+# =============================================================================
+# AMNESTY POLICY RULES
+# =============================================================================
+amnesty_rules:
+  H1:
+    apply: false
+    rationale: "Basis pyramid — perlu dihargai bukan diringankan. Loyalitas program lebih tepat."
+    alternative: "Sertifikat digital, pengurangan pajak tahun berikutnya untuk early payment"
+
+  K1:
+    apply: false
+    rationale: "Denda <90 hari masih kecil. Berfungsi sebagai pendorong alami. Amnesti = hilangkan insentif tepat waktu."
+    alternative: "Reduce friction: jam layanan, optimasi pembayaran elektronik"
+
+  O1:
+    apply: false
+    rationale: "Denda 3-12 bulan masih seimbang dengan pelanggaran. Amnesti dini = bahaya moral untuk H1/K1."
+    alternative: "Reduce friction via SAMSAT Keliling, perpanjangan jam, kemudahan elektronik"
+
+  M1:
+    apply: true
+    tipe: "PARSIAL"
+    pengurangan_denda_pkb_pct: [50, 75]
+    pengurangan_denda_swdkllj: "proporsional"
+    pokok_pkb: "tetap penuh"
+    pokok_swdkllj: "tetap penuh"
+    deadline_days: 60
+    one_time: true
+    rationale: "Pada 1-2 thn tunggakan, denda mulai jadi penghalang nyata. Pengurangan menurunkan ambang masuk kembali."
+
+  M2:
+    apply: true
+    tipe: "PENUH_DENDA"
+    pengurangan_denda_pkb_pct: 100
+    pengurangan_denda_swdkllj_pct: 100
+    pokok_negotiable: "bayar tahun berjalan + 1 tahun belakang"
+    deadline_days: 90
+    one_time: true
+    wajib_pasca_amnesti: "razia + tilang"
+    rationale: "Denda 2-4× pokok = tembok yang tidak akan terbayar. Pulihkan pokok yang pasti diterima."
+
+  S1:
+    apply: true
+    tipe: "PENGURANGAN_BBNKB"
+    deskripsi: "Pengurangan/penghapusan Bea Balik Nama"
+    denda_tidak_berlaku: true
+    deadline_days: 90
+    sync_dengan: "M2"
+    rationale: "Penghalang = BBNKB bukan denda. Penghapusan = jalan masuk pertama ke sistem."
+
+  S2:
+    apply: false
+    rationale: "Bukan target kampanye. Treatment = data cleanup."
+    alternative: "Verifikasi internal, cross-match Polri, surat administratif terakhir"
+
+# =============================================================================
+# CHANNEL ROUTING RULES — based on phone availability
+# =============================================================================
+channel_routing:
+  digital_first_threshold_pct_phone: 95
+  hybrid_threshold_pct_phone: 50
+  offline_only_threshold_pct_phone: 25
+
+  # Per segmen
+  H1:
+    primary: "WhatsApp otomatis"
+    secondary: []
+    rationale: "99.99% punya HP — full digital"
+
+  K1:
+    primary: "WhatsApp"
+    secondary: ["SMS sebagai cadangan"]
+    rationale: "99.99% HP — digital reliable"
+
+  O1:
+    primary: "WhatsApp bertahap"
+    secondary: ["SMS", "Pemberitahuan kedekatan SAMSAT Keliling"]
+    rationale: "99.98% HP — digital + Keliling synergy"
+
+  M1:
+    primary: "WhatsApp"
+    secondary: ["Surat tagihan fisik (penguat)", "SAMSAT Keliling"]
+    rationale: "99.91% HP — digital primary, fisik sebagai legal weight"
+
+  M2:
+    primary: "WhatsApp (71%)"
+    secondary: ["Kelurahan/RT-RW (29%)", "Surat fisik", "Razia pasca-amnesti"]
+    rationale: "71% HP only — hybrid mandatory, physical critical for 29%"
+
+  S1:
+    primary: "Komunitas (RT/RW, Duta Pajak)"
+    secondary: ["SAMSAT Keliling", "Spanduk/pengumuman"]
+    rationale: "Hanya 2% HP — community-based only"
+
+  S2:
+    primary: "TIDAK ADA KAMPANYE"
+    secondary: ["Surat fisik administratif terakhir saja"]
+    rationale: "19% HP, tapi target = data cleanup bukan konversi"
+
+# =============================================================================
+# ESCALATION PATHWAYS
+# =============================================================================
+escalation:
+  K1:
+    week_1: "WhatsApp pertama, urgensi ringan"
+    day_30: "WhatsApp kedua, urgensi naik"
+    day_45: "Switch ke SMS untuk yang tidak respond WhatsApp"
+    day_60: "WhatsApp ketiga, terakhir"
+    if_failed: "Reklasifikasi ke O1, lanjut ke escalation O1"
+
+  O1:
+    week_1_2: "WhatsApp pertama bertahap"
+    week_3_4: "WhatsApp kedua dengan akumulasi denda personal"
+    week_5_6: "WhatsApp ketiga dengan jadwal SAMSAT Keliling"
+    parallel: "Integrasi ETLE untuk identifikasi yang masih beroperasi"
+    if_failed: "Reklasifikasi ke M1, masukkan ke amnesti parsial"
+
+  M1:
+    day_0: "Regulasi amnesti parsial diterbitkan"
+    day_1_30: "Kampanye WhatsApp + surat fisik massal"
+    day_30_60: "Aktivasi Duta Pajak kelurahan"
+    day_60_end: "Validasi & rekonsiliasi transaksi amnesti"
+    if_failed: "Reklasifikasi ke M2, masukkan ke amnesti penuh next cycle"
+
+  M2:
+    day_0: "Regulasi amnesti penuh denda diterbitkan"
+    day_1_30: "Kampanye WA massal ke 71% + surat fisik untuk 29%"
+    day_30_60: "Penjangkauan kelurahan + Keliling di konsentrasi tinggi"
+    day_60_90: "Reminder akhir, urgensi tinggi"
+    day_91_plus: "WAJIB razia + tilang pasca-amnesti"
+    if_failed_to_pay: "Status: tetap M2, masuk pool razia berikutnya"
+
+  S1:
+    day_0: "Regulasi pengurangan BBNKB diterbitkan (sync M2 deadline)"
+    day_1_60: "Kampanye komunitas + spanduk + Duta Pajak"
+    day_60_90: "Intensifikasi via SAMSAT Keliling dengan balik nama langsung"
+    day_91_plus: "Window tutup. Kembali ke proses normal BBNKB."
+
+  S2:
+    day_0: "Tandai massal untuk peninjauan internal"
+    day_1: "Cross-match dengan Polri/Ditlantas"
+    day_30: "Surat administratif terakhir terkirim ke alamat tercatat"
+    day_91_plus: "Yang tidak respond → arsip atau hapus. Yang respond → reklasifikasi (M2/S1)."
+
+# =============================================================================
+# ANTI-PATTERNS — violations specialist HARUS deteksi & tolak
+# =============================================================================
+anti_patterns:
+  - name: "Kirim kampanye ke S2"
+    severity: "HIGH"
+    rationale: "Membakar kredibilitas seluruh kampanye + buang anggaran. Hanya 19% S2 punya HP, sebagian besar kendaraan tidak ada fisik."
+
+  - name: "Confuse S1 dengan S2"
+    severity: "HIGH"
+    rationale: "Treatment beda total: S1 dapat BBNKB reduction, S2 dapat data cleanup. Salah klasifikasi = anggaran terbuang DAN kehilangan revenue opportunity."
+
+  - name: "Confuse M1 dengan M2"
+    severity: "HIGH"
+    rationale: "M1 dapat amnesti parsial 50-75%, M2 dapat amnesti penuh. Memberikan amnesti penuh ke M1 = menghancurkan keadilan vs WP yang baru saja terbayar pokok+denda penuh."
+
+  - name: "Amnesti untuk H1/K1/O1"
+    severity: "CRITICAL"
+    rationale: "Moral hazard. WP patuh akan tunda pembayaran menunggu amnesti berikutnya. Menghancurkan basis pyramid."
+
+  - name: "Generic 'lakukan razia'"
+    severity: "MEDIUM"
+    rationale: "Razia harus targeted: segmen mana, kabupaten mana, kapan (HARUS pasca-amnesti M2)."
+
+  - name: "Static thinking"
+    severity: "MEDIUM"
+    rationale: "Angka berubah per refresh. Jangan klaim 'M2 selalu 140K' — ini snapshot 1 Mei 2025."
+
+  - name: "Lupa amnesti wajib diikuti razia"
+    severity: "HIGH"
+    rationale: "Amnesti tanpa penegakan pasca-deadline = sinyal 'tidak ada konsekuensi'. Cycle berikutnya konversi akan turun drastis."
+
+# =============================================================================
+# DECISION TREE — bagaimana specialist menjawab pertanyaan strategis
+# =============================================================================
+decision_tree:
+  step_1_classify_question:
+    - "Pertanyaan tentang berapa/distribusi?" → "Lookup ke agg_segmen_kabupaten / segmen_jenken"
+    - "Pertanyaan tentang treatment?" → "Lookup ke treatment_lookup per segmen"
+    - "Pertanyaan tentang siapa pelaksana?" → "Lookup ke raci_matrix"
+    - "Pertanyaan tentang potensi revenue?" → "Lookup ke revenue_scenario"
+    - "Pertanyaan strategis multi-aspect?" → "Decompose, jawab per aspect, kombinasikan"
+
+  step_2_check_data_scope:
+    - "Apakah pertanyaan untuk Pusat Urban?" → "Data tersedia (PR), jawab dengan angka aktual"
+    - "Apakah untuk Hub Industri / Hinterland?" → "Disclose: data belum tersedia, hanya kerangka strategi"
+
+  step_3_apply_anti_pattern_check:
+    - "Apakah jawaban menyarankan kampanye ke S2?" → "STOP, redirect ke data cleanup"
+    - "Apakah jawaban menyarankan amnesti H1/K1/O1?" → "STOP, redirect ke alternative"
+    - "Apakah segmen disebut eksplisit?" → "Wajib mention, bukan agregat saja"
+
+  step_4_format:
+    - "Lead dengan finding/recommendation"
+    - "Breakdown segmen dengan angka konkret"
+    - "Treatment recommendation eksplisit + amnesti policy"
+    - "Caveat data limitation"
+    - "Action konkret + RACI siapa pelaksana"

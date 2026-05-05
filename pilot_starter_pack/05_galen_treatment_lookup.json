@@ -1,0 +1,237 @@
+{
+  "version": "1.4",
+  "framework": "PKB Micro Segmentation Palangka Raya v1.4",
+  "reference_date": "2025-05-01",
+  "scope": "Pusat Urban — Palangka Raya (data tersedia)",
+  "segments": [
+    {
+      "kode": "H1",
+      "nama": "Patuh Aktif",
+      "warna": "HIJAU",
+      "kelas_pyramid": "Basis Patuh",
+      "durasi_tunggakan": "Belum jatuh tempo",
+      "volume_pr": 107967,
+      "pct_motor": 0.71,
+      "pct_punya_hp": 1.00,
+      "avg_pkb_idr": 500500,
+      "tujuan_strategis": "Retensi dan pencegahan",
+      "kanal_utama": ["WhatsApp otomatis"],
+      "amnesti_policy": null,
+      "loyalty_policy": "Sertifikat digital 'Wajib Pajak Taat', pengurangan pajak tahun berikutnya untuk early payment, manfaat keselamatan JR",
+      "expected_konversi": "85-95%",
+      "key_actions": [
+        "Konfigurasi alur pengingat WhatsApp otomatis (30/14/7 hari sebelum jatuh tempo)",
+        "Personalisasi pesan dengan bahasa daerah (Dayak/Banjar)",
+        "Pantau read-rate, click-rate, conversion per gelombang",
+        "Identifikasi WP progresif dengan multi-kendaraan untuk loyalty"
+      ],
+      "raci": {
+        "responsible": ["Vendor TI / Gateway WA"],
+        "accountable": ["Bapenda Kalteng"],
+        "consulted": ["Jasa Raharja"],
+        "informed": ["SAMSAT"]
+      }
+    },
+    {
+      "kode": "K1",
+      "nama": "Baru Lewat Jatuh Tempo",
+      "warna": "KUNING",
+      "kelas_pyramid": "Goyah Awal",
+      "durasi_tunggakan": "1-90 hari + ada riwayat",
+      "volume_pr": 33789,
+      "pct_motor": 0.68,
+      "pct_punya_hp": 1.00,
+      "avg_pkb_idr": 532758,
+      "tujuan_strategis": "Pemulihan cepat sebelum denda terakumulasi",
+      "kanal_utama": ["WhatsApp", "SMS sebagai cadangan"],
+      "amnesti_policy": null,
+      "amnesti_rationale": "Denda <90 hari masih kecil dan berfungsi sebagai pendorong alami. Menghapus denda di tahap ini = menghilangkan insentif tepat waktu.",
+      "expected_konversi": "60-75%",
+      "key_actions": [
+        "Hasilkan daftar kontak tunggakan <90 hari + nomor HP",
+        "Kirim WhatsApp massal minggu pertama setelah jatuh tempo",
+        "Tindak lanjut WhatsApp hari 30 dan 60 dengan urgensi naik",
+        "Alihkan ke SMS hari 45 untuk yang tidak respond",
+        "Analisis konversi per gelombang untuk tuning"
+      ],
+      "raci": {
+        "responsible": ["Vendor TI / Gateway WA"],
+        "accountable": ["Bapenda Kalteng"],
+        "consulted": ["Jasa Raharja"],
+        "informed": ["SAMSAT"]
+      }
+    },
+    {
+      "kode": "O1",
+      "nama": "Mulai Mengabaikan",
+      "warna": "ORANYE",
+      "kelas_pyramid": "Goyah Lanjut",
+      "durasi_tunggakan": "91-365 hari + ada riwayat",
+      "volume_pr": 32916,
+      "pct_motor": 0.76,
+      "pct_punya_hp": 1.00,
+      "avg_pkb_idr": 434535,
+      "tujuan_strategis": "Keterlibatan kembali sebelum pola mengeras menjadi kronis",
+      "kanal_utama": ["WhatsApp bertahap", "SMS", "Pemberitahuan kedekatan SAMSAT Keliling"],
+      "amnesti_policy": null,
+      "amnesti_rationale": "Denda 3-12 bulan masih seimbang dengan pelanggaran. Amnesti dini = bahaya moral untuk H1 dan K1.",
+      "expected_konversi": "35-50%",
+      "key_actions": [
+        "Kampanye WhatsApp bertahap 3 pesan dalam 6 minggu",
+        "Selaraskan jadwal SAMSAT Keliling dengan kecamatan kepadatan O1 tertinggi",
+        "Pemberitahuan berbasis lokasi saat Keliling dekat",
+        "Integrasi data ETLE untuk identifikasi yang masih beroperasi",
+        "Pantau konversi per kecamatan untuk optimasi rute Keliling"
+      ],
+      "raci": {
+        "responsible": ["Vendor TI / Gateway WA", "SAMSAT (untuk Keliling)", "Polri (untuk ETLE)"],
+        "accountable": ["Bapenda Kalteng"],
+        "consulted": ["Jasa Raharja"],
+        "informed": ["Kelurahan"]
+      }
+    },
+    {
+      "kode": "M1",
+      "nama": "Tidak Patuh Pasif",
+      "warna": "MERAH",
+      "kelas_pyramid": "Tidak Mau Pasif",
+      "durasi_tunggakan": "1-2 tahun + ada riwayat",
+      "volume_pr": 25039,
+      "pct_motor": 0.80,
+      "pct_punya_hp": 1.00,
+      "avg_pkb_idr": 390850,
+      "tujuan_strategis": "Pengurangan hambatan — atasi akumulasi denda yang jadi penghalang finansial",
+      "kanal_utama": ["WhatsApp", "Surat tagihan fisik", "SAMSAT Keliling"],
+      "amnesti_policy": {
+        "tipe": "PARSIAL",
+        "pengurangan_denda_pkb_pct": "50-75",
+        "pengurangan_denda_swdkllj": "Proporsional",
+        "pokok_pkb": "Tetap dibayar penuh",
+        "pokok_swdkllj": "Tetap dibayar penuh",
+        "deadline_hari": 60,
+        "satu_kali": true,
+        "rationale": "Pada durasi tunggakan 1-2 tahun, akumulasi denda bisa mendekati/melebihi pokok. Pengurangan menurunkan ambang masuk kembali tanpa mengorbankan prinsip pajak dasar harus tetap dipenuhi."
+      },
+      "expected_konversi": "25-40%",
+      "key_actions": [
+        "Rancang regulasi amnesti parsial 50-75% (deadline 60 hari)",
+        "Hasilkan perhitungan denda individual untuk WhatsApp",
+        "Kirim kampanye WhatsApp bertarget dengan kewajiban personal",
+        "Cetak dan distribusikan surat tagihan fisik sebagai penguat",
+        "Aktivasi Duta Pajak (Hayak Bahayau / Huma Betang Mahaga)",
+        "Validasi & rekonsiliasi setiap transaksi amnesti"
+      ],
+      "raci": {
+        "responsible": ["Vendor TI (WA)", "SAMSAT (cetak surat & loket)", "Kelurahan (Duta Pajak)"],
+        "accountable": ["Bapenda Kalteng (regulasi)", "Kelurahan (Duta Pajak)"],
+        "consulted": ["Jasa Raharja", "SAMSAT"],
+        "informed": ["Polri"]
+      }
+    },
+    {
+      "kode": "M2",
+      "nama": "Tidak Patuh Kronis",
+      "warna": "MERAH",
+      "kelas_pyramid": "Tidak Mau Mengakar",
+      "durasi_tunggakan": "2-5+ tahun + ada riwayat",
+      "volume_pr": 140966,
+      "pct_motor": 0.91,
+      "pct_punya_hp": 0.71,
+      "avg_pkb_idr": 240812,
+      "tujuan_strategis": "Pemulihan pendapatan via amnesti terstruktur + penegakan pasca-amnesti",
+      "kanal_utama": ["WhatsApp (71%)", "Surat fisik", "Kelurahan/RT-RW (29%)", "Razia pasca-amnesti"],
+      "amnesti_policy": {
+        "tipe": "PENUH_DENDA",
+        "pengurangan_denda_pkb_pct": 100,
+        "pengurangan_denda_swdkllj_pct": 100,
+        "pokok_pkb_negotiable": "Bayar tahun berjalan + 1 tahun ke belakang",
+        "deadline_hari": 90,
+        "satu_kali": true,
+        "wajib_diikuti_razia": true,
+        "rationale": "Pada 2-5 tahun, denda 2-4× pokok. Tanpa penghapusan penuh, kendaraan tidak akan pernah kembali ke sistem. Pilihan pragmatis: pulihkan pokok yang pasti diterima."
+      },
+      "expected_konversi": "15-30%",
+      "key_actions": [
+        "Rancang regulasi amnesti penuh denda (deadline 90 hari)",
+        "Kampanye WA massal ke 71% terjangkau digital",
+        "Koordinasi kelurahan/RT-RW untuk 29% offline",
+        "Tempatkan SAMSAT Keliling di area konsentrasi tertinggi",
+        "Integrasi ETLE deteksi yang masih beroperasi",
+        "Kebijakan 'Tidak Bayar = Tidak Ada BBM' untuk kendaraan dinas",
+        "Rencanakan jadwal+lokasi razia pasca-amnesti berbasis data",
+        "Eksekusi razia + tilang setelah deadline berakhir"
+      ],
+      "raci": {
+        "responsible": ["Vendor TI (WA)", "Kelurahan (penjangkauan offline)", "SAMSAT (Keliling)", "Polri (razia + ETLE)"],
+        "accountable": ["Bapenda Kalteng (regulasi)", "Kelurahan (penjangkauan)"],
+        "consulted": ["Jasa Raharja"],
+        "informed": ["Pemerintah Daerah"]
+      }
+    },
+    {
+      "kode": "S1",
+      "nama": "Belum Terdaftar",
+      "warna": "ABU",
+      "kelas_pyramid": "Luar Pyramid",
+      "durasi_tunggakan": "Tidak pernah membayar (≤15 thn)",
+      "volume_pr": 12756,
+      "pct_motor": 0.97,
+      "pct_punya_hp": 0.02,
+      "avg_pkb_idr": 156855,
+      "tujuan_strategis": "Memasukkan ke dalam sistem — registrasi formal pertama kali",
+      "kanal_utama": ["SAMSAT Keliling", "RT/RW", "Kampanye kelurahan"],
+      "amnesti_policy": {
+        "tipe": "PENGURANGAN_BBNKB",
+        "deskripsi": "Pengurangan/penghapusan Bea Balik Nama Kendaraan Bermotor",
+        "denda_tidak_berlaku": "Tidak ada riwayat kewajiban PKB sebelumnya",
+        "deadline_hari": 90,
+        "synced_dengan": "Amnesti M2",
+        "rationale": "Penghalang utama = biaya BBNKB, bukan denda. Penghapusan menghilangkan rintangan finansial terbesar untuk masuk sistem. Setiap konversi = aliran pendapatan baru berulang."
+      },
+      "expected_konversi": "10-20%",
+      "key_actions": [
+        "Rancang regulasi pengurangan BBNKB 90 hari (sync M2)",
+        "Identifikasi titik konsentrasi via koordinasi kelurahan",
+        "SAMSAT Keliling dengan kapabilitas balik nama langsung",
+        "Kampanye komunitas via spanduk, RT/RW, Duta Pajak",
+        "Libatkan BRILink, PT POS, BUMDES sebagai titik layanan",
+        "Terminal pembayaran luring-ke-daring untuk area tanpa sinyal"
+      ],
+      "raci": {
+        "responsible": ["Kelurahan (identifikasi)", "SAMSAT (Keliling + balik nama)", "Vendor TI (terminal)"],
+        "accountable": ["Bapenda (regulasi)", "Kelurahan (kampanye komunitas)"],
+        "consulted": ["Jasa Raharja", "BRILink/PT POS/BUMDES"],
+        "informed": ["Polri"]
+      }
+    },
+    {
+      "kode": "S2",
+      "nama": "Kendaraan Hantu",
+      "warna": "ABU",
+      "kelas_pyramid": "Luar Pyramid",
+      "durasi_tunggakan": "Tidak pernah membayar (>15 thn) ATAU >5 thn tunggakan + >20 thn usia",
+      "volume_pr": 74544,
+      "pct_motor": 0.90,
+      "pct_punya_hp": 0.19,
+      "avg_pkb_idr": 259285,
+      "tujuan_strategis": "Kebersihan registrasi — verifikasi status & cleanup. JANGAN buang anggaran kampanye.",
+      "kanal_utama": ["TIDAK ADA KAMPANYE — proses data internal"],
+      "amnesti_policy": null,
+      "amnesti_rationale": "Mengirim pesan ke ghost vehicle merusak kredibilitas seluruh kampanye dan membuang sumber daya. Treatment: verifikasi & cleanup.",
+      "expected_konversi": "Tidak berlaku — tujuannya kualitas data",
+      "key_actions": [
+        "Tandai massal untuk peninjauan registrasi internal",
+        "Pemberitahuan administratif terakhir berupa surat fisik (90 hari respond)",
+        "Cross-match dengan data kendaraan Polri/Ditlantas",
+        "Yang tidak respond → arsip / hapus dari database",
+        "Yang merespond → reklasifikasi ke M2 atau S1, masukkan ke kampanye sesuai"
+      ],
+      "raci": {
+        "responsible": ["SAMSAT (penanda + surat)", "Polri (cross-match)"],
+        "accountable": ["Bapenda Kalteng"],
+        "consulted": ["Polri"],
+        "informed": ["Jasa Raharja"]
+      }
+    }
+  ]
+}

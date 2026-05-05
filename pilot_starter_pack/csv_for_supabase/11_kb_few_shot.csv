@@ -1,0 +1,109 @@
+"category","question","reasoning","expected_answer","approved"
+"segment_summary","Berapa kendaraan di segmen M2?","Lookup ke agg_segmen_kabupaten untuk M2 di Palangka Raya. Sebut konteks bahwa ini segmen terbesar.","Segmen M2 (Tidak Patuh Kronis) di Palangka Raya = 140,966 kendaraan = 33% dari registry — ini segmen terbesar. Profil: tunggakan 2-5 tahun atau lebih, dominan motor (90.9%), avg PKB Rp 240,812 per kendaraan. Total potensi PKB: ~Rp 33.9 M. Hanya 71% yang punya HP, jadi 29% butuh penjangkauan offline via kelurahan/RT-RW. Treatment yang sesuai: amnesti penuh denda dengan deadline 90 hari + razia pasca-amnesti.","TRUE"
+"treatment_rec","Treatment apa untuk segmen M1?","M1 = tunggakan 1-2 tahun. Akumulasi denda mulai jadi penghalang nyata. Per framework: amnesti parsial 50-75%.","Untuk segmen M1 (Tidak Patuh Pasif, tunggakan 1-2 tahun): **AMNESTI PARSIAL 50-75% pengurangan denda PKB** dengan deadline 60 hari, satu kali. Pokok PKB + SWDKLLJ tetap dibayar penuh. Kanal utama: WhatsApp (99.91% terjangkau) + surat tagihan fisik sebagai penguat. Aktivasi Duta Pajak kelurahan via program Hayak Bahayau atau Huma Betang Mahaga. Expected konversi: 25-40%. Dari 25,039 kendaraan M1 di PR, potensi recovery ~Rp 2.45 M dengan target konversi konservatif 25%.","TRUE"
+"amnesty_policy","Apakah amnesti penuh denda berlaku untuk semua tunggakan?","Penting untuk specialist tegaskan: amnesti TIDAK blanket. Hanya M2 yang dapat amnesti penuh.","TIDAK. Amnesti dirancang differentiated, bukan blanket — ini prinsip dasar framework. Hanya **segmen M2 (Tidak Patuh Kronis, tunggakan 2-5+ tahun)** yang dapat amnesti penuh denda + tunggakan pokok historis dapat dinegosiasi. M1 hanya dapat parsial 50-75%. H1, K1, O1 TIDAK dapat amnesti — memberikan amnesti ke segmen ini akan menghancurkan basis pyramid karena WP patuh akan tunda pembayaran menunggu amnesti berikutnya (moral hazard). S1 dapat lever berbeda: pengurangan BBNKB. S2 tidak ada amnesti, target = data cleanup. Setiap kebijakan amnesti wajib diikuti penegakan setelah deadline berakhir.","TRUE"
+"raci_lookup","Siapa pelaksana untuk razia M2 pasca-amnesti?","Lookup ke raci_matrix untuk aksi 'razia pasca-amnesti' M2.","Razia pasca-amnesti M2 di-execute oleh **Polri/Ditlantas (R = Responsible)**. Stakeholder lain: SAMSAT (C = Consulted untuk koordinasi dengan loket pembayaran on-site), Bapenda Kalteng (I = Informed setelah operasi). Aksi ini tidak boleh dijalankan tanpa amnesti window berakhir terlebih dulu — itu prasyarat regulasi. Lokasi razia berbasis data konsentrasi M2: dari Sheet 7, motor (90.9% dari M2) terkonsentrasi di kecamatan dengan kepadatan tinggi. Tujuan razia: mengakhiri sinyal bahwa tidak membayar = tidak ada konsekuensi.","TRUE"
+"revenue_projection","Berapa potensi pendapatan dari segmen K1 dengan konversi 60%?","Lookup revenue_scenario untuk K1 konservatif (60%).","Dengan konversi 60% (target konservatif), segmen K1 (Baru Lewat Jatuh Tempo) menghasilkan **Rp 10.8 M tambahan revenue PKB pokok**. Detail: 33,789 kendaraan × 60% = 20,273 kendaraan terkonversi × avg PKB Rp 532,758 per kendaraan. K1 adalah segmen paling 'ringan' — denda masih kecil, kanal WhatsApp efektif (99.99% punya HP), tidak butuh amnesti. Treatment hanya pengingat bertahap (minggu 1, hari 30, hari 60, switch ke SMS hari 45). Catatan: angka ini hanya pokok PKB. Belum termasuk SWDKLLJ, opsen, BBNKB, atau komponen lain — total realized revenue akan lebih besar.","TRUE"
+"segment_diff","Bedanya S1 dan S2 apa?","Critical distinction. Specialist harus bisa jelaskan dengan tegas.","S1 dan S2 sama-sama 'tidak pernah transact' (tanggal_transaksi NULL), tapi sangat berbeda secara root cause dan treatment.
+
+**S1 (Belum Terdaftar)**: kendaraan dengan usia ≤15 tahun. 12,756 di PR. Profil: 97.5% motor, hanya 1.59% punya HP. Hipotesis utama: pembelian tangan kedua tanpa proses balik nama. Pemilik baru tidak terdaftar di SAMSAT. **Penghalang utama = biaya BBNKB, BUKAN denda**. Treatment: pengurangan/penghapusan BBNKB + community-based campaign (RT/RW, SAMSAT Keliling dengan kapabilitas balik nama). Setiap konversi = aliran pendapatan baru berulang.
+
+**S2 (Kendaraan Hantu)**: usia >15 tahun + tidak pernah transact, ATAU tunggakan >5 tahun + usia >20 tahun. 74,544 di PR. Profil: 19% punya HP, rata-rata usia 22-35 tahun. Hipotesis: kendaraan sudah dibuang/rusak permanen/pindah wilayah tanpa mutasi. **Bukan target kampanye**. Treatment: data cleanup via cross-match Polri/Ditlantas. Mengirim kampanye ke S2 membakar kredibilitas seluruh kampanye dan membuang anggaran.
+
+Kesalahan paling umum: confuse S1 dengan S2 → kirim amnesti ke S2 (sia-sia) atau kirim cleanup notice ke S1 (kehilangan opportunity revenue baru).","TRUE"
+"channel_strategy","Untuk segmen O1, channel apa yang efektif?","O1 = mulai mengabaikan, 99.98% punya HP. Strategy: WhatsApp bertahap.","Segmen O1 (Mulai Mengabaikan, tunggakan 91-365 hari) di Palangka Raya: 99.98% punya HP, jadi **digital-first 100% feasible**. Strategi multi-sentuh:
+
+1. **WhatsApp bertahap** (3 pesan dalam 6 minggu): pertama urgensi ringan, kedua tunjukkan akumulasi denda yang bertumbuh personal, ketiga sertakan jadwal SAMSAT Keliling terdekat dengan kecamatan penerima.
+2. **SMS sebagai cadangan** untuk yang tidak respond WhatsApp.
+3. **Pemberitahuan berbasis lokasi** saat SAMSAT Keliling berada dekat penerima.
+4. **Integrasi data ETLE** untuk mengidentifikasi kendaraan O1 yang masih beroperasi di jalan — penegakan target.
+
+Catatan kunci: **TIDAK ADA AMNESTI** untuk O1. Denda 3-12 bulan masih seimbang dengan pelanggaran. Memberikan amnesti dini menciptakan moral hazard untuk H1 dan K1. Intervensi yang tepat: kurangi hambatan (Keliling, perpanjangan jam layanan, kemudahan pembayaran elektronik), bukan kurangi kewajiban. Expected konversi: 35-50%.","TRUE"
+"segment_lookup","Mana segmen yang dapat amnesti penuh denda?","Lookup straight: M2 only.","Hanya **segmen M2 (Tidak Patuh Kronis)** yang berhak atas amnesti penuh denda PKB + SWDKLLJ. Selain itu:
+- **M1**: amnesti parsial 50-75% saja (deadline 60 hari)
+- **S1**: bukan amnesti denda (tidak ada riwayat denda) — yang berlaku adalah pengurangan BBNKB
+- **H1, K1, O1**: TIDAK dapat amnesti — moral hazard
+- **S2**: tidak ada kebijakan amnesti — target adalah data cleanup
+
+Logika di balik amnesti penuh M2: denda akumulasi 2-5 tahun bisa mencapai 2-4 kali lipat pokok pajak. Tanpa penghapusan penuh, kendaraan ini tidak akan pernah kembali ke sistem — pilihan pragmatis: pulihkan pokok yang pasti diterima daripada menuntut pokok+denda yang tidak akan pernah terealisasi. Window 90 hari, satu kali, WAJIB diikuti razia setelah deadline.","TRUE"
+"data_lookup","Berapa persen kendaraan M2 yang punya HP?","Lookup data Sheet 2.","**71.08%** kendaraan M2 di Palangka Raya punya nomor HP tercatat. Ini angka yang signifikan rendah dibanding segmen K1/O1/M1 yang masing-masing >99%. Implikasi strategi:
+
+- **71% terjangkau digital** → kampanye WhatsApp massal layak dilakukan untuk subset ini
+- **29% (~40,880 kendaraan) TIDAK terjangkau digital** → harus dijangkau via kanal fisik: kelurahan, RT/RW, surat tagihan fisik, SAMSAT Keliling
+
+Pattern data ini juga konsisten dengan profil M2: kendaraan motor lama (90.9% motor, rata-rata usia 12.7 tahun), kemungkinan banyak yang tangan ketiga atau lebih. Profil ini menjelaskan kenapa M2 butuh treatment kombinasi (digital + offline + razia) — bukan single-channel.","TRUE"
+"revenue_total","Dampak revenue konservatif total berapa?","Lookup Sheet 6 conservative scenario summary.","Skenario konservatif total: **Rp 23.5 M tambahan revenue PKB pokok** dari Palangka Raya, dengan **60,471 kendaraan terkonversi** dari semua segmen target.
+
+Breakdown:
+- K1 (60% conv): 20,273 kendaraan → Rp 10.80 M
+- O1 (35% conv): 11,520 kendaraan → Rp 5.01 M
+- M1 (25% conv): 6,259 kendaraan → Rp 2.45 M
+- M2 (15% conv): 21,144 kendaraan → Rp 5.09 M
+- S1 (10% conv): 1,275 kendaraan → Rp 0.20 M
+
+Catatan penting:
+1. Angka ini **PKB pokok saja** — belum termasuk SWDKLLJ, opsen, BBNKB. Total realized revenue akan lebih besar.
+2. Untuk M2, denda yang dihapus tidak dihitung sebagai pendapatan (memang sengaja dihapus agar pokok bisa terkumpul).
+3. **S1 punya nilai tahun pertama kecil tapi compounding** — setiap konversi menghasilkan aliran pendapatan baru yang berulang setiap tahun.
+4. Skenario optimis bisa mencapai Rp 35+ M dengan konversi yang lebih agresif.","TRUE"
+"stakeholder","Untuk amnesti M2, siapa yang mengeluarkan regulasinya?","RACI lookup: regulasi amnesti M2.","**Bapenda Kalteng (A = Accountable)** mengeluarkan regulasi amnesti penuh denda M2 dengan deadline 90 hari. Stakeholder lain dalam aksi ini:
+- **Jasa Raharja (C)**: consulted untuk komponen SWDKLLJ yang juga di-amnesti
+- **SAMSAT (C)**: consulted untuk eksekusi loket pembayaran
+- **Polri (C)**: consulted untuk koordinasi razia pasca-amnesti
+
+Urutan: regulasi diterbitkan oleh Bapenda → diikuti kampanye komunikasi → window 90 hari → akhir window → razia massal yang sudah direncanakan. Tanpa razia pasca-amnesti, program ini akan dilihat sebagai 'hadiah' dan menciptakan moral hazard untuk siklus berikutnya.","TRUE"
+"regional_strategy","Bagaimana strategi untuk hub industri seperti Sampit?","Hub industri belum ada data, tapi kerangka strategi tersedia.","**Catatan limitasi: data kuantitatif untuk Hub Industri (Kotim/Sampit, Kobar, Bartim, Barut) belum tersedia di pilot saat ini.** Kerangka strategi yang tersedia:
+
+Karakteristik Hub Industri:
+- Didominasi armada perusahaan perkebunan kelapa sawit dan pertambangan
+- Banyak kendaraan dengan plat luar daerah (non-KH)
+- Persoalan mutasi plat nomor yang kompleks
+
+Strategi differentiated dari Pusat Urban:
+1. **Kemitraan Korporat SAMSAT** — pemeriksaan di lokasi perusahaan, bukan menarik kendaraan ke kantor SAMSAT
+2. **Pemeriksaan fisik massal** + pembayaran kolektif langsung di area operasional perkebunan/pertambangan
+3. **Tekanan via skor ESG** — label 'Perusahaan Taat Pajak' sebagai komponen penilaian tata kelola
+4. **WhatsApp untuk armada** — koordinasi dengan bagian keuangan perusahaan, BUKAN individual driver
+5. **Negosiasi pembayaran kolektif** untuk fleet dengan tunggakan
+
+Untuk pilot ini, recommendation: extend data pipeline ke kabupaten Hub Industri sebagai prioritas berikutnya setelah PR pilot lulus.","TRUE"
+"anti_pattern","Apakah kita bisa kirim WhatsApp ke segmen S2?","Anti-pattern besar — JANGAN.","**TIDAK BOLEH.** Mengirim WhatsApp ke segmen S2 (Kendaraan Hantu) adalah anti-pattern besar dengan dua konsekuensi:
+
+1. **Pemborosan anggaran kampanye** — S2 berarti kendaraan kemungkinan sudah tidak ada secara fisik (dibuang/rusak permanen/pindah wilayah tanpa mutasi). Pesan tidak akan menghasilkan konversi.
+2. **Kerusakan kredibilitas kampanye** — kalau pesan amnesti masuk ke nomor yang kendaraannya tidak ada, penerima akan bingung dan kehilangan kepercayaan. Kabar ini menyebar dan membakar kredibilitas seluruh kampanye, termasuk yang bertarget M2 yang valid.
+
+Lagi pula, hanya 19% kendaraan S2 yang punya nomor HP tercatat — sebagian besar tidak terjangkau digital secara teknis.
+
+Yang TEPAT untuk S2: data cleanup process internal. Tandai massal untuk peninjauan registrasi → cross-match dengan data Polri/Ditlantas → satu pemberitahuan administratif terakhir berupa surat fisik (90 hari respond) ke alamat terdaftar → yang tidak respond → arsip/hapus dari database; yang respond → reklasifikasi ke M2 (kalau kendaraan masih ada) atau S1 (kalau ternyata tangan-kedua).
+
+Prinsip umum: kampanye penagihan hanya untuk segmen yang **valid, terjangkau, dan punya potensi konversi realistis**. S2 gagal di tiga kriteria ini.","TRUE"
+"framework_understanding","Apa beda framework ini dengan compliance pyramid DJP standar?","Framework v1.4 lebih granular — specialist harus jelaskan added value.","Framework mikro-segmentasi v1.4 mengembangkan compliance pyramid DJP standar dengan 3 perbaikan utama:
+
+1. **Granularitas kepatuhan**: Pyramid DJP punya 3 lapis (mau & mampu / mau tapi gagal / tidak mau). Framework v1.4 punya **5 segmen in-pyramid** (H1/K1/O1/M1/M2) berdasar durasi tunggakan terukur — memungkinkan treatment per durasi yang spesifik.
+
+2. **Tier ke-5 'di luar pyramid'**: Pyramid DJP fokus pada WP yang sudah dalam sistem. Framework v1.4 menambahkan **S1 (Belum Terdaftar)** dan **S2 (Kendaraan Hantu)** — kendaraan yang tidak pernah masuk pyramid sama sekali. Ini insight penting karena S1 sebenarnya peluang revenue baru yang besar (tangan kedua tanpa balik nama), sedangkan S2 adalah noise yang harus dibersihkan.
+
+3. **Sumbu kedua: Tipologi Wilayah**: durasi tunggakan yang sama di Palangka Raya vs Murung Raya butuh treatment berbeda karena akar masalah berlainan (perilaku menunda urban vs keterjangkauan fisik hinterland). Framework menjawab 'seberapa tidak patuh' DAN 'mengapa tidak patuh' secara bersamaan.
+
+Hasil: kampanye yang lebih bertarget, alokasi sumber daya lebih efisien, dan amnesti yang differentiated bukan blanket. Framework ini dirancang langsung operational-ready, bukan konseptual.","TRUE"
+"practical_advice","Kalau kita cuma punya budget untuk satu segmen, mana yang harus dipilih?","Optimasi multi-criteria. Trade-off effort, ROI, signaling.","Tiga pilihan dengan trade-off berbeda:
+
+**Opsi A — Maximum yield: K1 (Baru Lewat Jatuh Tempo)**
+- 33,789 kendaraan, konversi target 60%, potensi Rp 10.80 M
+- Effort rendah (WhatsApp otomatis), conversion tinggi, no amnesti needed
+- Risk: tidak ada efek deterrent untuk segmen lain
+- **ROI per effort: PALING TINGGI**
+
+**Opsi B — Maximum scale + signaling: M2 (Tidak Patuh Kronis)**
+- 140,966 kendaraan, konversi target 15%, potensi Rp 5.09 M + recovery tunggakan historis
+- Effort tinggi (regulasi amnesti + 71% digital + 29% offline + razia)
+- High visibility, signaling effect untuk seluruh ekosistem
+- **Strategic impact: PALING TINGGI**
+
+**Opsi C — Highest leverage long-term: S1 (Belum Terdaftar)**
+- 12,756 kendaraan, konversi 10%, tahun pertama hanya Rp 0.20 M
+- TAPI: setiap konversi = aliran pendapatan baru yang BERULANG setiap tahun
+- Effort moderate (regulasi BBNKB + community campaign + Keliling dengan kapabilitas balik nama)
+- **Compounding value: PALING TINGGI** (dalam 5 tahun bisa lebih besar dari M2)
+
+**Rekomendasi pragmatis untuk PILOT 1 budget**: K1 (Opsi A). Quick win, low risk, prove concept. Setelah pilot lulus, lanjutkan ke M2 + S1 secara bersamaan dengan amnesti window yang sinkron 90 hari.","TRUE"

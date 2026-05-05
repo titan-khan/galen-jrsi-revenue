@@ -1,0 +1,500 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-05-05",
+  "scope": "JR PKB Pilot - Kalimantan Tengah (Palangka Raya)",
+  "framework_version": "PKB Micro Segmentation v1.4",
+  "reference_date": "2025-05-01",
+
+  "nodes": [
+    {
+      "node_id": "sd_notice",
+      "node_type": "raw",
+      "layer": "gold",
+      "table": "registry_enriched",
+      "column": "sd_notice",
+      "data_type": "date",
+      "description": "Tanggal notice/jatuh tempo terakhir SD (Surat Denda).",
+      "upstream": [],
+      "downstream": ["durasi_tunggakan_days"],
+      "governance": "raw_source",
+      "edge_cases": ["NULL → kendaraan belum pernah dapat notice"]
+    },
+    {
+      "node_id": "reference_date",
+      "node_type": "raw",
+      "layer": "constant",
+      "value": "2025-05-01",
+      "data_type": "date",
+      "description": "Cutoff date untuk semua perhitungan durasi. Per business assumption.",
+      "upstream": [],
+      "downstream": ["durasi_tunggakan_days", "usia_pemilik_estimated"],
+      "governance": "business_assumption"
+    },
+    {
+      "node_id": "thn_buat",
+      "node_type": "raw",
+      "layer": "gold",
+      "table": "registry_enriched",
+      "column": "thn_buat",
+      "data_type": "int",
+      "description": "Tahun pembuatan kendaraan.",
+      "upstream": [],
+      "downstream": ["usia_kendaraan", "usia_kendaraan_band"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "nopol",
+      "node_type": "raw",
+      "layer": "gold",
+      "table": "registry_enriched",
+      "column": "nopol",
+      "data_type": "string",
+      "description": "Nomor polisi kendaraan (PK).",
+      "upstream": [],
+      "downstream": ["has_payment_history"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "telp_pemilik",
+      "node_type": "raw",
+      "layer": "gold",
+      "table": "registry_enriched",
+      "column": "telp_pemilik",
+      "data_type": "string",
+      "description": "Nomor telepon rumah/utama pemilik.",
+      "upstream": [],
+      "downstream": ["has_phone"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "hp_pemilik",
+      "node_type": "raw",
+      "layer": "gold",
+      "table": "registry_enriched",
+      "column": "hp_pemilik",
+      "data_type": "string",
+      "description": "Nomor handphone pemilik.",
+      "upstream": [],
+      "downstream": ["has_phone"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.pokok_pkb",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "pokok_pkb",
+      "data_type": "numeric",
+      "description": "Nominal pokok PKB per transaksi (IDR).",
+      "upstream": [],
+      "downstream": ["dim_jenken.est_pkb_per_kendaraan", "denda_pkb_estimated"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.pokok_swd",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "pokok_swd",
+      "data_type": "numeric",
+      "description": "Nominal pokok SWDKLLJ per transaksi (IDR).",
+      "upstream": [],
+      "downstream": ["swdkllj_total_realized", "dim_jenken.est_swd_per_kendaraan", "swdkllj_recovery_share"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.denda_swd",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "denda_swd",
+      "data_type": "numeric",
+      "description": "Denda SWDKLLJ aktual yang sudah dikenakan.",
+      "upstream": [],
+      "downstream": ["denda_swdkllj_total"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.kode_jenken",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "kode_jenken",
+      "data_type": "string",
+      "description": "Kode jenis kendaraan (FK ke ref.dim_jenken).",
+      "upstream": [],
+      "downstream": ["dim_jenken.est_pkb_per_kendaraan", "dim_jenken.est_swd_per_kendaraan"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.tahun_pajak",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "tahun_pajak",
+      "data_type": "int",
+      "description": "Tahun pajak transaksi.",
+      "upstream": [],
+      "downstream": ["dim_jenken.est_pkb_per_kendaraan", "swdkllj_total_realized"],
+      "governance": "raw_source"
+    },
+    {
+      "node_id": "transaksi.tgl_lahir",
+      "node_type": "raw",
+      "layer": "raw_source",
+      "table": "transaksi (raw upload)",
+      "column": "tgl_lahir",
+      "data_type": "date",
+      "description": "Tanggal lahir pemilik (dari KTP).",
+      "upstream": [],
+      "downstream": ["usia_pemilik_estimated"],
+      "governance": "raw_source"
+    },
+
+    {
+      "node_id": "durasi_tunggakan_days",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "(reference_date::date - sd_notice::date)",
+      "implementation": "Python: (reference_date - sd_notice).days",
+      "data_type": "int",
+      "unit": "days",
+      "description": "Berapa hari kendaraan menunggak sejak notice terakhir.",
+      "upstream": ["sd_notice", "reference_date"],
+      "downstream": ["segmen_kepatuhan", "arrears_rate"],
+      "governance": "framework_v1.4",
+      "edge_cases": [
+        "sd_notice IS NULL → days=NULL → masuk S-track",
+        "sd_notice > reference_date → clamp to 0 → masuk H1 (taat)",
+        "Negative days (data error) → clamp to 0"
+      ]
+    },
+    {
+      "node_id": "usia_kendaraan",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "EXTRACT(YEAR FROM reference_date) - thn_buat",
+      "data_type": "int",
+      "unit": "years",
+      "description": "Usia kendaraan dalam tahun.",
+      "upstream": ["thn_buat", "reference_date"],
+      "downstream": ["usia_kendaraan_band", "segmen_kepatuhan"],
+      "governance": "derived_runtime",
+      "edge_cases": [
+        "thn_buat IS NULL → usia=NULL",
+        "thn_buat > reference_year → usia negative → set NULL"
+      ]
+    },
+    {
+      "node_id": "usia_kendaraan_band",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "CASE WHEN usia_kendaraan <= 15 THEN '<=15' WHEN usia_kendaraan > 15 THEN '>15' ELSE NULL END",
+      "data_type": "string",
+      "description": "Band usia kendaraan untuk klasifikasi S1/S2.",
+      "upstream": ["usia_kendaraan"],
+      "downstream": ["segmen_kepatuhan"],
+      "governance": "framework_v1.4"
+    },
+    {
+      "node_id": "has_payment_history",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "EXISTS (SELECT 1 FROM gold.transaksi_fact tf WHERE tf.nopol = re.nopol)",
+      "implementation": "Python: nopol_set = set(transaksi['nopol']); has_history = registry['nopol'].isin(nopol_set)",
+      "data_type": "boolean",
+      "description": "Pernah ada transaksi pembayaran PKB di history?",
+      "upstream": ["nopol"],
+      "downstream": ["segmen_kepatuhan"],
+      "governance": "framework_v1.4",
+      "edge_cases": [
+        "Multi-year history → still TRUE if ANY year has payment",
+        "Different nopol but same pemilik → currently NOT joined (kendaraan-level only)"
+      ]
+    },
+    {
+      "node_id": "segmen_kepatuhan",
+      "node_type": "decision",
+      "layer": "computed",
+      "formula": "Rule-based classifier (see classify_segment function in 11_load_pilot.py)",
+      "data_type": "string",
+      "values": ["H1", "K1", "O1", "M1", "M2", "S1", "S2"],
+      "description": "Segmen kepatuhan PKB per framework v1.4.",
+      "upstream": ["durasi_tunggakan_days", "has_payment_history", "usia_kendaraan_band"],
+      "downstream": ["recommended_treatment", "segmen_distribution", "arrears_rate", "kanal_utama_actual"],
+      "governance": "framework_v1.4",
+      "edge_cases": [
+        "M2/S2 boundary at usia=20 (3,780 rows reclassified vs reference distribution)",
+        "If all upstream NULL → 'unclassified' (handle separately)"
+      ]
+    },
+    {
+      "node_id": "recommended_treatment",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "JOIN ref.treatment_rules ON segmen_kepatuhan = treatment_rules.segmen",
+      "data_type": "composite (4 columns)",
+      "output_columns": ["kanal_utama", "kebijakan_amnesti", "aksi_utama", "perkiraan_konversi"],
+      "description": "Treatment strategy yang direkomendasikan untuk segmen ini (denormalized di registry_enriched).",
+      "upstream": ["segmen_kepatuhan"],
+      "downstream": ["expected_recovery_konservatif", "kanal_utama_actual"],
+      "governance": "framework_v1.4"
+    },
+    {
+      "node_id": "has_phone",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "(telp_pemilik IS NOT NULL AND LENGTH(telp_pemilik) >= 8) OR (hp_pemilik IS NOT NULL AND LENGTH(hp_pemilik) >= 8)",
+      "data_type": "boolean",
+      "description": "Pemilik bisa dihubungi via telp atau HP?",
+      "upstream": ["telp_pemilik", "hp_pemilik"],
+      "downstream": ["phone_coverage_pct", "kanal_utama_actual"],
+      "governance": "derived_runtime",
+      "edge_cases": [
+        "String with non-numeric chars → currently passes if length OK (TODO: digit validation)",
+        "Country code prefix (+62...) → length still passes"
+      ]
+    },
+    {
+      "node_id": "usia_pemilik_estimated",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "EXTRACT(YEAR FROM AGE(reference_date, tgl_lahir))",
+      "data_type": "int",
+      "unit": "years",
+      "description": "Estimasi usia pemilik di reference_date.",
+      "upstream": ["transaksi.tgl_lahir", "reference_date"],
+      "downstream": ["usia_pemilik_band"],
+      "governance": "derived_runtime",
+      "edge_cases": [
+        "tgl_lahir > reference_date → data error → NULL",
+        "tgl_lahir IS NULL → propagate NULL"
+      ]
+    },
+
+    {
+      "node_id": "dim_jenken.est_pkb_per_kendaraan",
+      "node_type": "aggregate",
+      "layer": "ref",
+      "formula": "MEDIAN(pokok_pkb) GROUP BY kode_jenken WHERE tahun_pajak >= reference_year - 3",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Median PKB per kode_jenken berdasarkan history 3 tahun terakhir.",
+      "upstream": ["transaksi.pokok_pkb", "transaksi.kode_jenken", "transaksi.tahun_pajak"],
+      "downstream": ["registry_enriched.est_pkb_per_kendaraan", "total_potensi_pkb"],
+      "governance": "derived_runtime",
+      "rationale": "Median chosen over mean because pokok_pkb distribution is right-skewed (luxury car outliers).",
+      "edge_cases": [
+        "Kode_jenken hanya muncul di old data → fallback to all-time median, flag is_stale_estimate=TRUE"
+      ]
+    },
+    {
+      "node_id": "dim_jenken.est_swd_per_kendaraan",
+      "node_type": "aggregate",
+      "layer": "ref",
+      "formula": "MEDIAN(pokok_swd) GROUP BY kode_jenken WHERE tahun_pajak >= reference_year - 3",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Median SWDKLLJ per kode_jenken.",
+      "upstream": ["transaksi.pokok_swd", "transaksi.kode_jenken", "transaksi.tahun_pajak"],
+      "downstream": ["registry_enriched.est_swd_per_kendaraan"],
+      "governance": "derived_runtime"
+    },
+
+    {
+      "node_id": "segmen_distribution",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "COUNT(*) GROUP BY segmen_kepatuhan",
+      "data_type": "table",
+      "description": "Distribusi jumlah kendaraan per segmen.",
+      "upstream": ["segmen_kepatuhan"],
+      "downstream": [],
+      "governance": "framework_v1.4"
+    },
+    {
+      "node_id": "arrears_rate",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "COUNT(*) WHERE durasi_tunggakan_days > 0 / COUNT(*) × 100%",
+      "data_type": "percentage",
+      "description": "% kendaraan yang menunggak (durasi > 0).",
+      "upstream": ["durasi_tunggakan_days"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "phone_coverage_pct",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "COUNT(*) WHERE has_phone=TRUE / COUNT(*) × 100% per segmen",
+      "data_type": "percentage",
+      "description": "% kendaraan yang punya phone di setiap segmen.",
+      "upstream": ["has_phone", "segmen_kepatuhan"],
+      "downstream": ["kanal_utama_actual"],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "motor_share_pct",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "COUNT(*) WHERE kode_jenken IN (motor codes) / COUNT(*) × 100%",
+      "data_type": "percentage",
+      "description": "% kendaraan yang motor (R2) vs mobil (R4).",
+      "upstream": ["transaksi.kode_jenken"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "total_potensi_pkb",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "SUM(est_pkb_per_kendaraan) GROUP BY scope",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Total estimasi potensi PKB yang bisa direalisasikan.",
+      "upstream": ["dim_jenken.est_pkb_per_kendaraan", "segmen_kepatuhan"],
+      "downstream": ["expected_recovery_konservatif", "rata_pkb_per_kendaraan"],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "rata_pkb_per_kendaraan",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "total_potensi_pkb / COUNT(*) per segmen",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Rata-rata potensi PKB per kendaraan.",
+      "upstream": ["total_potensi_pkb"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "expected_recovery_konservatif",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "total_potensi_pkb × konversi_lower_bound[segmen]",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Estimasi konservatif PKB yang bisa di-recover (lower bound dari range konversi).",
+      "upstream": ["total_potensi_pkb", "recommended_treatment"],
+      "downstream": [],
+      "governance": "framework_v1.4"
+    },
+    {
+      "node_id": "swdkllj_total_realized",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "SUM(pokok_swd) WHERE tahun_pajak = reference_year",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Total SWDKLLJ realized di tahun referensi.",
+      "upstream": ["transaksi.pokok_swd", "transaksi.tahun_pajak"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "swdkllj_recovery_share",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "SUM(pokok_swd) / SUM(pokok_pkb) × 100%",
+      "data_type": "percentage",
+      "description": "SWDKLLJ sebagai % dari PKB realized (benchmark vs nasional 15-25%).",
+      "upstream": ["transaksi.pokok_swd", "transaksi.pokok_pkb"],
+      "downstream": [],
+      "governance": "derived_runtime",
+      "edge_cases": ["SUM(pokok_pkb)=0 → return NULL"]
+    },
+    {
+      "node_id": "denda_swdkllj_total",
+      "node_type": "metric",
+      "layer": "L2",
+      "formula": "SUM(denda_swd) per scope",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Total denda SWDKLLJ aktual.",
+      "upstream": ["transaksi.denda_swd"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    },
+    {
+      "node_id": "denda_pkb_estimated",
+      "node_type": "derived",
+      "layer": "computed",
+      "formula": "pokok_pkb * 0.25 * LEAST(FLOOR(durasi_tunggakan_days / 365), 1.92)",
+      "data_type": "numeric",
+      "unit": "IDR",
+      "description": "Estimasi denda PKB (capped at 48% per regulasi).",
+      "upstream": ["transaksi.pokok_pkb", "durasi_tunggakan_days"],
+      "downstream": [],
+      "governance": "framework_v1.4",
+      "rationale": "Denda 25%/tahun, max 48% → max 1.92 tahun"
+    },
+    {
+      "node_id": "kanal_utama_actual",
+      "node_type": "decision",
+      "layer": "computed",
+      "formula": "IF recommended_treatment.kanal_utama IN ('telp','wa') AND has_phone=FALSE THEN 'surat' ELSE recommended_treatment.kanal_utama END",
+      "data_type": "string",
+      "description": "Kanal komunikasi setelah feasibility check terhadap contactability.",
+      "upstream": ["recommended_treatment", "has_phone"],
+      "downstream": [],
+      "governance": "derived_runtime"
+    }
+  ],
+
+  "edges": [
+    {"from": "sd_notice", "to": "durasi_tunggakan_days", "type": "input"},
+    {"from": "reference_date", "to": "durasi_tunggakan_days", "type": "input"},
+    {"from": "reference_date", "to": "usia_pemilik_estimated", "type": "input"},
+    {"from": "thn_buat", "to": "usia_kendaraan", "type": "input"},
+    {"from": "usia_kendaraan", "to": "usia_kendaraan_band", "type": "input"},
+    {"from": "nopol", "to": "has_payment_history", "type": "input"},
+    {"from": "telp_pemilik", "to": "has_phone", "type": "input"},
+    {"from": "hp_pemilik", "to": "has_phone", "type": "input"},
+    {"from": "transaksi.tgl_lahir", "to": "usia_pemilik_estimated", "type": "input"},
+
+    {"from": "durasi_tunggakan_days", "to": "segmen_kepatuhan", "type": "input"},
+    {"from": "has_payment_history", "to": "segmen_kepatuhan", "type": "input"},
+    {"from": "usia_kendaraan_band", "to": "segmen_kepatuhan", "type": "input"},
+    {"from": "segmen_kepatuhan", "to": "recommended_treatment", "type": "lookup"},
+
+    {"from": "transaksi.pokok_pkb", "to": "dim_jenken.est_pkb_per_kendaraan", "type": "aggregate"},
+    {"from": "transaksi.kode_jenken", "to": "dim_jenken.est_pkb_per_kendaraan", "type": "groupby"},
+    {"from": "transaksi.tahun_pajak", "to": "dim_jenken.est_pkb_per_kendaraan", "type": "filter"},
+    {"from": "transaksi.pokok_swd", "to": "dim_jenken.est_swd_per_kendaraan", "type": "aggregate"},
+    {"from": "transaksi.kode_jenken", "to": "dim_jenken.est_swd_per_kendaraan", "type": "groupby"},
+
+    {"from": "durasi_tunggakan_days", "to": "arrears_rate", "type": "input"},
+    {"from": "segmen_kepatuhan", "to": "segmen_distribution", "type": "input"},
+    {"from": "has_phone", "to": "phone_coverage_pct", "type": "input"},
+    {"from": "segmen_kepatuhan", "to": "phone_coverage_pct", "type": "groupby"},
+    {"from": "transaksi.kode_jenken", "to": "motor_share_pct", "type": "input"},
+
+    {"from": "dim_jenken.est_pkb_per_kendaraan", "to": "total_potensi_pkb", "type": "aggregate"},
+    {"from": "segmen_kepatuhan", "to": "total_potensi_pkb", "type": "groupby"},
+    {"from": "total_potensi_pkb", "to": "rata_pkb_per_kendaraan", "type": "input"},
+    {"from": "total_potensi_pkb", "to": "expected_recovery_konservatif", "type": "input"},
+    {"from": "recommended_treatment", "to": "expected_recovery_konservatif", "type": "input"},
+
+    {"from": "transaksi.pokok_swd", "to": "swdkllj_total_realized", "type": "input"},
+    {"from": "transaksi.tahun_pajak", "to": "swdkllj_total_realized", "type": "filter"},
+    {"from": "transaksi.pokok_pkb", "to": "swdkllj_recovery_share", "type": "input"},
+    {"from": "transaksi.pokok_swd", "to": "swdkllj_recovery_share", "type": "input"},
+    {"from": "transaksi.denda_swd", "to": "denda_swdkllj_total", "type": "input"},
+
+    {"from": "transaksi.pokok_pkb", "to": "denda_pkb_estimated", "type": "input"},
+    {"from": "durasi_tunggakan_days", "to": "denda_pkb_estimated", "type": "input"},
+
+    {"from": "recommended_treatment", "to": "kanal_utama_actual", "type": "input"},
+    {"from": "has_phone", "to": "kanal_utama_actual", "type": "input"}
+  ],
+
+  "validation": {
+    "is_dag": true,
+    "no_cycles": true,
+    "all_metrics_traceable_to_raw": true,
+    "node_count": 30,
+    "edge_count": 38
+  }
+}
