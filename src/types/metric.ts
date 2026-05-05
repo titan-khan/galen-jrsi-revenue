@@ -109,3 +109,22 @@ export interface AISuggestionItem {
   relatedMetricPath: string[];
   accentType: 'warning' | 'info';
 }
+
+// --- Metric Certification (mirrors meta.metric_certification rows) ---
+
+export type CertificationLevel = 'gold' | 'silver' | 'bronze';
+
+export interface MetricCertification {
+  metricId: string;
+  metricName: string;
+  metricSlug: string;
+  businessDomain: string;
+  certificationLevel: CertificationLevel;
+  confidenceScore: number | null;
+  certifiedAt: string | null;
+  certifiedBy: string | null;
+  lastValidatedAt: string | null;
+  governanceSource: string | null;
+  ownerTeam: string | null;
+  notes: string | null;
+}

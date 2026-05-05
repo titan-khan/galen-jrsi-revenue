@@ -2,6 +2,8 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { MetricDefinition } from '@/types/metric';
+import { useMetrics } from '@/contexts/MetricsContext';
+import { MetricCertBadge } from '@/components/MetricCertBadge';
 
 interface MetricCardProps {
   metric: MetricDefinition;
@@ -9,6 +11,8 @@ interface MetricCardProps {
 
 export function MetricCard({ metric }: MetricCardProps) {
   const { displayData } = metric;
+  const { getCertForMetric } = useMetrics();
+  const cert = getCertForMetric(metric.id);
   const isPositive = displayData.changePercent > 0;
   const isNegative = displayData.changePercent < 0;
 
@@ -53,6 +57,12 @@ export function MetricCard({ metric }: MetricCardProps) {
           {displayData.comparisonLabel}
         </span>
       </div>
+
+      {cert && (
+        <div className="mt-1.5">
+          <MetricCertBadge cert={cert} size="sm" />
+        </div>
+      )}
 
       {displayData.insight?.text && (
         <p className="text-xs text-muted-foreground/70 line-clamp-2 mt-1.5">

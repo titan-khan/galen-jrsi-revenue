@@ -2,9 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useQueryClient } from "@tanstack/react-query";
 import { metricsData as initialMetrics } from "@/data/metricsData";
 import type { PeriodFilter } from "@/services/logistiqMetricService";
-import type { MetricDefinition, MetricDomain, AISummaryData, AISuggestionItem } from "@/types/metric";
+import type { MetricDefinition, MetricDomain, AISummaryData, AISuggestionItem, MetricCertification } from "@/types/metric";
 import { cacheKeys } from "@/lib/cacheKeys";
 import { ContextErrorBoundary } from "@/components/ErrorBoundaries";
+import { fetchMetricCertifications } from "@/services/metricCertificationService";
 
 interface MetricsContextType {
   metrics: MetricDefinition[];
@@ -33,6 +34,10 @@ interface MetricsContextType {
   // Smart polling state
   pollingInterval: number;
   pollingUnchangedCount: number;
+  // Metric certifications (from meta.metric_certification via v_metric_certifications view)
+  certifications: Map<string, MetricCertification>;
+  getCertForMetric: (metricId: string) => MetricCertification | undefined;
+  isCertLoading: boolean;
 }
 
 const MetricsContext = createContext<MetricsContextType | undefined>(undefined);
@@ -204,6 +209,37 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
     // Static JRSI data — no cache to invalidate yet
   }, []);
 
+  // Metric certifications loaded once from Supabase v_metric_certifications view
+  const [certifications, setCertifications] = useState<Map<string, MetricCertification>>(new Map());
+  const [isCertLoading, setIsCertLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMetricCertifications()
+      .then((rows) => {
+        if (cancelled) return;
+        const map = new Map<string, MetricCertification>();
+        for (const row of rows) {
+          map.set(row.metricId, row);
+        }
+        setCertifications(map);
+      })
+      .catch((err) => {
+        console.error("[MetricsContext] Failed to load certifications:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsCertLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const getCertForMetric = useCallback(
+    (metricId: string) => certifications.get(metricId),
+    [certifications]
+  );
+
   return (
     <ContextErrorBoundary
       contextName="Metrics"
@@ -235,6 +271,9 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
           isAiLoading,
           pollingInterval: 0,
           pollingUnchangedCount: 0,
+          certifications,
+          getCertForMetric,
+          isCertLoading,
         }}
       >
         {children}
