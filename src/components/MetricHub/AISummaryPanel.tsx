@@ -98,7 +98,7 @@ export function AISummaryPanel({ onScrollToMetric }: AISummaryPanelProps) {
           <div>
             <span className="text-[13px] font-semibold text-foreground">AI Summary</span>
             <span className="text-[11px] text-muted-foreground/60 ml-2">
-              Galen Metrics Agent · Generated {timeAgo}
+              {summary.agentName} · Generated {timeAgo}
             </span>
           </div>
         </div>

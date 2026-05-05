@@ -3,7 +3,15 @@ export type Aggregation = "sum" | "avg" | "count" | "min" | "max";
 export type TimeGranularity = "day" | "week" | "month" | "quarter" | "year";
 export type SparklineType = "cumulative" | "non-cumulative";
 export type ValueSentiment = "up-good" | "up-bad";
-export type MetricDomain = 'Revenue' | 'Cost' | 'Fee' | 'Margin' | 'Operational' | 'Performance' | 'Accident Overview' | 'Financial' | 'Vehicle' | 'TRL Risk' | 'Cause Analysis' | 'Data Quality' | 'Time Analysis';
+export type MetricDomain =
+  // Generic / legacy
+  | 'Revenue' | 'Cost' | 'Fee' | 'Margin' | 'Operational' | 'Performance'
+  // JRSI (road safety / accidents)
+  | 'Accident Overview' | 'Financial' | 'Vehicle' | 'TRL Risk' | 'Cause Analysis' | 'Data Quality' | 'Time Analysis'
+  // PKB Palangka Raya pilot
+  | 'Compliance' | 'Treatment' | 'SWDKLLJ' | 'Demographic' | 'Claims' | 'Safety' | 'Risk' | 'Cause' | 'Temporal'
+  // Governance
+  | 'Governance';
 export type MetricType = 'actionable' | 'result' | 'observational' | 'experimental';
 
 export interface MetricFilter {
