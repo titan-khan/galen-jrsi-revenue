@@ -71,7 +71,11 @@ function LoadingSkeleton() {
 
 const MetricCardGrid = ({ onViewDetails }: MetricCardGridProps) => {
   const { getFollowingMetrics, toggleFollow, isLoading } = useMetrics();
-  const followingMetrics = getFollowingMetrics();
+  // Demote experimental metrics (e.g. M-REV-004 Optimistic Revenue) from the headline
+  // exec dashboard. They remain discoverable in Browse but won't anchor decisions.
+  const followingMetrics = getFollowingMetrics().filter(
+    (m) => m.metricType !== "experimental"
+  );
 
   // Group followed metrics by domain (same pattern as BrowseMetricsTable)
   const grouped = useMemo(() => {

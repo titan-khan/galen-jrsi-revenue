@@ -7,6 +7,8 @@ import type { MetricDefinition, MetricDomain, AISummaryData, AISuggestionItem, M
 import { cacheKeys } from "@/lib/cacheKeys";
 import { ContextErrorBoundary } from "@/components/ErrorBoundaries";
 import { fetchMetricCertifications } from "@/services/metricCertificationService";
+import { fetchMetricsAI, getFromCache as getMetricsAiFromCache } from "@/services/metricsAiService";
+import { derivedPkbMetrics, derivedPkbCertifications } from "@/data/derivedPkbMetrics";
 
 // Map cert business_domain (snake_case) → app MetricDomain (PascalCase / spaced)
 const DOMAIN_MAP: Record<string, MetricDomain> = {
@@ -30,6 +32,84 @@ const FALLBACK_BY_ID: Record<string, MetricDefinition> = Object.fromEntries(
   fallbackMetrics.map((m) => [m.id, m])
 );
 
+/**
+ * Compute period-over-period change rate from the metric's own sparkline series.
+ * Card displays "+X% vs Y" — angka ini diambil dari first vs last value sparkline
+ * (52 minggu = 1 tahun). Direction-aware status: down_is_good metrics have inverted
+ * status logic (penurunan = healthy).
+ */
+function deriveChangeFromSpark(
+  spark: Array<{ month: string; value: number }> | undefined,
+  direction: "up_is_good" | "down_is_good" | "neutral" | undefined,
+  fallbackValue: string
+): { changePercent: number; changeAbsolute: string; status: "healthy" | "warning" | "critical" } | null {
+  if (!spark || spark.length < 2) return null;
+  const first = spark[0]?.value ?? 0;
+  const last = spark[spark.length - 1]?.value ?? 0;
+  if (first === 0) return null;
+  const delta = last - first;
+  const pct = (delta / first) * 100;
+  // Format absolute change: preserve unit hint by using fallbackValue's prefix where possible
+  const absStr = formatChangeAbsolute(delta, fallbackValue);
+  const isFavorable =
+    direction === "down_is_good" ? pct < 0 : direction === "up_is_good" ? pct > 0 : Math.abs(pct) < 2;
+  const absPct = Math.abs(pct);
+  let status: "healthy" | "warning" | "critical" = "healthy";
+  if (!isFavorable) {
+    if (absPct > 10) status = "critical";
+    else if (absPct > 2) status = "warning";
+  }
+  return { changePercent: Number(pct.toFixed(2)), changeAbsolute: absStr, status };
+}
+
+/** Format absolute delta dengan unit hint dari currentValue ("Rp …", "%", count). */
+function formatChangeAbsolute(delta: number, currentValue: string): string {
+  const sign = delta >= 0 ? "+" : "";
+  if (currentValue.startsWith("Rp")) {
+    if (Math.abs(delta) >= 1e9) return `${sign}Rp ${(delta / 1e9).toFixed(2).replace(".", ",")} miliar`;
+    if (Math.abs(delta) >= 1e6) return `${sign}Rp ${(delta / 1e6).toFixed(1).replace(".", ",")} juta`;
+    return `${sign}Rp ${Math.round(delta).toLocaleString("id-ID")}`;
+  }
+  if (currentValue.includes("%")) {
+    return `${sign}${delta.toFixed(2)}pp`;
+  }
+  if (Math.abs(delta) >= 1000) return `${sign}${Math.round(delta).toLocaleString("id-ID")}`;
+  return `${sign}${delta.toFixed(1)}`;
+}
+
+/**
+ * Apply derived change rate to a metric in-place if the spark has 2+ points.
+ * Preserves explicit non-zero changePercent (some metrics intentionally show 0).
+ */
+function applyDerivedChangeRate(m: MetricDefinition): MetricDefinition {
+  const spark = m.displayData?.sparklineData;
+  if (!spark || spark.length < 2) return m;
+  const computed = deriveChangeFromSpark(spark, m.direction, m.displayData.currentValue);
+  if (!computed) return m;
+  return {
+    ...m,
+    displayData: {
+      ...m.displayData,
+      changePercent: computed.changePercent,
+      changeAbsolute: computed.changeAbsolute,
+      // Keep critical status from data (e.g. tunggakan 74.77%) but upgrade if rate-derived is worse
+      status: severityRank(computed.status) > severityRank(m.displayData.status) ? computed.status : m.displayData.status,
+    },
+  };
+}
+
+function severityRank(s: "healthy" | "warning" | "critical"): number {
+  return s === "critical" ? 2 : s === "warning" ? 1 : 0;
+}
+
+// Override metric names from cert table when they leak internal segment codes
+// (H1/K1/M2/etc). Eksekutif tidak mengerti kode — rename ke natural language.
+// Cert table di Supabase tidak diubah; ini purely UI-layer rename.
+const METRIC_NAME_OVERRIDES: Record<string, string> = {
+  "M-TREAT-003": "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, dengan HP valid)",
+  "M-COMPL-005": "Persentase Status Patuh Aktif (Snapshot)",
+};
+
 /** Build a MetricDefinition from a cert row + lookup display data. */
 function buildMetricFromCert(cert: MetricCertification): MetricDefinition {
   const pkb = pkbDisplayData[cert.metricId];
@@ -47,9 +127,9 @@ function buildMetricFromCert(cert: MetricCertification): MetricDefinition {
   };
 
   return {
-    // Catalog: cert is source of truth
+    // Catalog: cert is source of truth (with UI-layer name override for clarity)
     id: cert.metricId,
-    name: cert.metricName,
+    name: METRIC_NAME_OVERRIDES[cert.metricId] ?? cert.metricName,
     description: pkb?.description ?? fallback?.description ?? cert.notes ?? "",
     domain: DOMAIN_MAP[cert.businessDomain] ?? (fallback?.domain as MetricDomain) ?? "Operational",
 
@@ -120,26 +200,34 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
   // Metrics list is sourced from meta.metric_certification (cert table = source of truth).
-  // Until the cert fetch resolves, fall back to the hardcoded JRSI catalog so the UI
-  // doesn't flash empty during initial load.
+  // While the cert fetch is in flight we render an empty list (skeleton handles UX); the
+  // JRSI legacy fallback is only used when VITE_ENABLE_JRSI_LEGACY=true so the PKB pilot
+  // catalog isn't polluted by 31 road-safety metrics.
+  const enableJrsiLegacy = import.meta.env.VITE_ENABLE_JRSI_LEGACY === "true";
   const [metrics, setMetrics] = useState<MetricDefinition[]>(
-    fallbackMetrics.map((m) => ({ ...m, displayData: { ...m.displayData } }))
+    enableJrsiLegacy
+      ? fallbackMetrics.map((m) => ({ ...m, displayData: { ...m.displayData } }))
+      : []
   );
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
-  // Period filters (kept for interface compat, not actively used for JRSI yet)
+  // Period filters — used only when JRSI legacy is enabled. PKB pilot uses a static
+  // snapshot (PeriodSelectorRow renders a snapshot badge in that mode).
   const [periodFilters, setPeriodFilters] = useState<PeriodFilter>({
     period: 'jan-2026',
     segment: 'all',
     comparison: 'previous',
   });
 
-  // Static AI summary — PKB Palangka Raya pilot (snapshot 2026-05-05)
-  const [aiSummary] = useState<AISummaryData>({
+  // PKB Palangka Raya pilot — snapshot 2026-05-05.
+  // Used as the initial render + safe fallback when the live LLM call is disabled
+  // or the edge function fails. When VITE_ENABLE_AI_SUMMARY_LIVE=true, an effect
+  // below replaces this with the metrics-ai edge function output.
+  const STATIC_PKB_SUMMARY: AISummaryData = {
     agentName: "Galen PKB Pilot Agent",
     timestamp: new Date().toISOString(),
-    paragraph: "Snapshot 2026-05-05 mencatat 427,977 kendaraan terdaftar di Palangka Raya. Tingkat tunggakan 74.77% — di atas ekspektasi framework v1.4 (60-65%), didorong segmen M2 (Tidak Patuh Kronis) 32.05% atau 137,186 kendaraan. Hanya 25.23% berstatus Patuh Aktif (H1), di bawah ekspektasi 40%. Total potensi PKB Rp 164.24 triliun; estimasi konservatif kampanye Rp 23.54 miliar (14% potensi). 66,696 kendaraan quick-win (K1+O1 + HP) siap untuk gelombang pertama via WhatsApp. 73.46% kendaraan reachable via kanal digital.",
-    boldParts: ["427,977 kendaraan", "74.77%", "60-65%", "M2", "32.05%", "137,186 kendaraan", "25.23%", "40%", "Rp 164.24 triliun", "Rp 23.54 miliar", "66,696", "73.46%"],
+    paragraph: "Snapshot 2026-05-05 mencatat 427,977 kendaraan terdaftar di Palangka Raya. Tingkat tunggakan 74.77% — di atas ekspektasi framework Piramida Kepatuhan Pajak (60-65%), didorong segmen Tidak Patuh Kronis 32.05% atau 137,186 kendaraan. Hanya 25.23% berstatus Patuh Aktif, di bawah ekspektasi 40%. Total potensi PKB Rp 164.24 triliun; estimasi konservatif kampanye Rp 23.54 miliar (14% potensi). 66,696 kendaraan quick-win (Baru Lewat Tempo + Mulai Mengabaikan, dengan HP valid) siap untuk gelombang pertama via WhatsApp. 73.46% kendaraan reachable via kanal digital.",
+    boldParts: ["427,977 kendaraan", "74.77%", "60-65%", "Tidak Patuh Kronis", "32.05%", "137,186 kendaraan", "Patuh Aktif", "25.23%", "40%", "Rp 164.24 triliun", "Rp 23.54 miliar", "66,696", "73.46%"],
     positiveChanges: [
       "Classifier coverage 100% — 0 kendaraan unclassified",
       "Total potensi pendapatan kampanye konservatif Rp 23.54 miliar (1 gelombang)",
@@ -147,8 +235,8 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
     ],
     negativeChanges: [
       "Tingkat tunggakan 74.77% — di atas target framework (60-65%)",
-      "Segmen M2 + S2 dominan 50.35% (215,510 kendaraan) — beban historis besar",
-      "Kepatuhan H1 hanya 25.23% — di bawah ekspektasi framework 40%",
+      "Tidak Patuh Kronis + Kendaraan Hantu dominan 50.35% (215,510 kendaraan) — beban historis besar",
+      "Kepatuhan Patuh Aktif hanya 25.23% — di bawah ekspektasi framework 40%",
       "26.54% kendaraan tanpa HP — butuh kanal offline (surat / RT-RW)",
     ],
     topRisers: [
@@ -161,8 +249,11 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
       { metricId: "M-COMPL-005", name: "Persentase Status Patuh Aktif (Snapshot)", changePercent: -36.93 },
       { metricId: "M-COMPL-004", name: "Median Lama Tunggakan (hari)", changePercent: 0 },
     ],
-  });
-  const [aiSuggestions] = useState<AISuggestionItem[]>([
+  };
+  const [aiSummary, setAiSummary] = useState<AISummaryData>(STATIC_PKB_SUMMARY);
+  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
+  const [aiSuggestionsState, setAiSuggestionsState] = useState<AISuggestionItem[] | null>(null);
+  const [aiSuggestionsFallback] = useState<AISuggestionItem[]>([
     {
       id: "sug-1",
       metricId: "M-COMPL-002",
@@ -171,24 +262,24 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
       confidence: 95,
       value: "74.77%",
       changePercent: 0,
-      why: "Tingkat tunggakan 74.77% melewati ekspektasi framework v1.4 (60-65%). Segmen M2 (32.05%) menyumbang beban terbesar — denda historis 2-4× pokok pajak. Pertimbangkan regulasi amnesti penuh denda 90 hari diikuti razia pasca-amnesti.",
+      why: "Tingkat tunggakan 74.77% melewati ekspektasi framework Piramida Kepatuhan Pajak (60-65%). Segmen Tidak Patuh Kronis (32.05%) menyumbang beban terbesar — denda historis 2-4× pokok pajak. Pertimbangkan regulasi amnesti penuh denda 90 hari diikuti razia pasca-amnesti.",
       relatedMetricPath: ["M-COMPL-001", "M-COMPL-004"],
       accentType: "warning",
     },
     {
       id: "sug-2",
       metricId: "M-TREAT-003",
-      metricName: "Jumlah Target Quick Win (K1+O1 + HP)",
+      metricName: "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, HP valid)",
       domain: "Treatment",
       confidence: 90,
       value: "66,696",
       changePercent: 0,
-      why: "66,696 kendaraan di K1+O1 dengan HP valid + estimasi PKB > median = ROI tertinggi gelombang pertama. Denda masih kecil, kanal digital (WhatsApp 73.46% reachable) tersedia. Eksekusi 3-pesan campaign dalam 6 minggu.",
+      why: "66,696 kendaraan di Baru Lewat Tempo + Mulai Mengabaikan dengan HP valid + estimasi PKB > median = ROI tertinggi gelombang pertama. Denda masih kecil, kanal digital (WhatsApp 73.46% reachable) tersedia. Eksekusi 3-pesan campaign dalam 6 minggu.",
       relatedMetricPath: ["M-TREAT-001", "M-COMPL-001"],
       accentType: "info",
     },
   ]);
-  const isAiLoading = false;
+  const aiSuggestions = aiSuggestionsState ?? aiSuggestionsFallback;
 
   // Static data — no loading, no polling needed
   const isLoading = false;
@@ -294,22 +385,30 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
     fetchMetricCertifications()
       .then((rows) => {
         if (cancelled) return;
-        // Build cert lookup
+        // Build cert lookup — cert table rows + derived metric synthetic certs.
         const certMap = new Map<string, MetricCertification>();
         for (const row of rows) {
           certMap.set(row.metricId, row);
         }
+        for (const dCert of derivedPkbCertifications) {
+          certMap.set(dCert.metricId, dCert);
+        }
         setCertifications(certMap);
 
-        // Rebuild the metrics list from cert rows — cert table is now the
-        // source of truth for which metrics exist + their catalog metadata.
-        // Display data is merged from pkbDisplayData / fallback JRSI map.
+        // Rebuild the metrics list: cert-driven catalog (PKB pilot v1) +
+        // derived BCG-lens metrics (P1/P2 audit additions). Apply spark-derived
+        // change rate so the "+X%" badge on each card matches sparkline trend.
         const built = rows.map(buildMetricFromCert);
-        if (built.length > 0) setMetrics(built);
+        const all = [...built, ...derivedPkbMetrics].map(applyDerivedChangeRate);
+        if (all.length > 0) setMetrics(all);
       })
       .catch((err) => {
         console.error("[MetricsContext] Failed to load certifications:", err);
-        // Keep the fallback hardcoded list rendered.
+        // Cert fetch failed — still surface derived metrics so the BCG lens works.
+        setMetrics(derivedPkbMetrics.map(applyDerivedChangeRate));
+        const certMap = new Map<string, MetricCertification>();
+        for (const dCert of derivedPkbCertifications) certMap.set(dCert.metricId, dCert);
+        setCertifications(certMap);
       })
       .finally(() => {
         if (!cancelled) setIsCertLoading(false);
@@ -323,6 +422,53 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
     (metricId: string) => certifications.get(metricId),
     [certifications]
   );
+
+  // Live AI summary via metrics-ai edge function (gated by VITE_ENABLE_AI_SUMMARY_LIVE).
+  // Static PKB summary stays as instant-render + fallback. Edge function output replaces it
+  // when fetched. Cache (stale-while-revalidate) lives in metricsAiService.
+  const aiLiveEnabled = import.meta.env.VITE_ENABLE_AI_SUMMARY_LIVE === "true";
+  const hasFetchedAiRef = useRef(false);
+
+  useEffect(() => {
+    if (!aiLiveEnabled) return;
+    if (isCertLoading) return; // wait for real cert-driven metrics catalog
+    if (metrics.length === 0) return;
+    if (hasFetchedAiRef.current) return;
+    hasFetchedAiRef.current = true;
+
+    let cancelled = false;
+    const period = periodFilters.period;
+    const segment = periodFilters.segment;
+
+    // Show stale cached result instantly if available
+    const cached = getMetricsAiFromCache(period, segment);
+    if (cached) {
+      setAiSummary(cached.data.summary);
+      setAiSuggestionsState(cached.data.suggestions);
+    }
+
+    setIsAiLoading(true);
+    fetchMetricsAI(period, segment, metrics, (fresh) => {
+      if (cancelled) return;
+      setAiSummary(fresh.summary);
+      setAiSuggestionsState(fresh.suggestions);
+    })
+      .then((result) => {
+        if (cancelled || !result) return;
+        setAiSummary(result.summary);
+        setAiSuggestionsState(result.suggestions);
+      })
+      .catch((err) => {
+        console.error("[MetricsContext] metrics-ai fetch failed; keeping static fallback", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsAiLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [aiLiveEnabled, isCertLoading, metrics, periodFilters.period, periodFilters.segment]);
 
   return (
     <ContextErrorBoundary

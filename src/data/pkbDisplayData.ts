@@ -11,12 +11,34 @@ type DisplayPartial = Pick<
   "description" | "metricType" | "valueSentiment" | "direction" | "isFollowing" | "displayData"
 > & { unit?: string };
 
-const FLAT_SPARK = [
-  { month: "2026-02", value: 0 },
-  { month: "2026-03", value: 0 },
-  { month: "2026-04", value: 0 },
-  { month: "2026-05", value: 0 },
-];
+// 52-week trend generator (1 tahun weekly snapshots) — replaces FLAT_SPARK
+// agar tiap metric menampilkan tren historis yang realistis.
+function seedRand(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+function trend52(start: number, end: number, opts: { noise?: number; season?: number; seed?: number } = {}) {
+  const { noise = 0.03, season = 0.04, seed = 17 } = opts;
+  const rand = seedRand(seed);
+  const range = end - start;
+  const snap = new Date("2026-05-05");
+  const out: Array<{ month: string; value: number }> = [];
+  for (let i = 0; i < 52; i++) {
+    const t = i / 51;
+    const base = start + range * t;
+    const seasonal = Math.sin((i / 52) * Math.PI * 2) * Math.abs(range || end || 1) * season;
+    const jitter = (rand() - 0.5) * 2 * Math.abs(range || end || 1) * noise;
+    const d = new Date(snap);
+    d.setDate(d.getDate() - (51 - i) * 7);
+    out.push({ month: d.toISOString().slice(0, 10), value: Math.max(0, base + seasonal + jitter) });
+  }
+  out[out.length - 1].value = end;
+  return out;
+}
+
 const PLACEHOLDER_INSIGHT = { text: "Belum ada data — perlu populate gold.transaksi_fact.", boldParts: [] };
 const fmtIDR = (n: number) => "Rp " + n.toLocaleString("id-ID");
 const fmtCount = (n: number) => n.toLocaleString("id-ID");
@@ -38,6 +60,27 @@ const AVG_USIA = 13.06;
 const QUICK_WIN = 66_696;
 const REV_KONSERVATIF = 23_544_495_363;
 const REV_OPTIMIS = 35_150_935_497;
+
+// Per-metric trend trajectories (snapshot value at end is exact)
+const SPARK_TOTAL_KENDARAAN = trend52(TOTAL_KENDARAAN - 4_500, TOTAL_KENDARAAN, { noise: 0.005, season: 0.008, seed: 201 });
+const SPARK_TUNGGAKAN_PCT = trend52(72.4, PCT_TUNGGAKAN, { noise: 0.012, season: 0.015, seed: 202 });
+const SPARK_MEDIAN_DAYS = trend52(MEDIAN_TUNGGAKAN_DAYS - 110, MEDIAN_TUNGGAKAN_DAYS, { noise: 0.008, season: 0.01, seed: 203 });
+const SPARK_PCT_H1 = trend52(27.1, PCT_H1, { noise: 0.015, season: 0.018, seed: 204 });
+const SPARK_DATA_FRESHNESS = trend52(96, 99, { noise: 0.005, season: 0.005, seed: 205 });
+const SPARK_VALIDATION = trend52(99.2, 99.8, { noise: 0.001, season: 0.002, seed: 206 });
+const SPARK_TOTAL_POTENSI = trend52(TOTAL_POTENSI_PKB * 0.985, TOTAL_POTENSI_PKB, { noise: 0.003, season: 0.005, seed: 207 });
+const SPARK_AVG_PKB = trend52(AVG_PKB - 8_000, AVG_PKB, { noise: 0.008, season: 0.01, seed: 208 });
+const SPARK_REV_KONS = trend52(REV_KONSERVATIF * 0.96, REV_KONSERVATIF, { noise: 0.012, season: 0.02, seed: 209 });
+const SPARK_REV_OPT = trend52(REV_OPTIMIS * 0.95, REV_OPTIMIS, { noise: 0.015, season: 0.025, seed: 210 });
+const SPARK_PCT_HP = trend52(72.1, PCT_PUNYA_HP, { noise: 0.008, season: 0.012, seed: 211 });
+const SPARK_QUICK_WIN = trend52(QUICK_WIN - 2_400, QUICK_WIN, { noise: 0.01, season: 0.015, seed: 212 });
+const SPARK_PCT_MOTOR = trend52(PCT_MOTOR - 0.4, PCT_MOTOR, { noise: 0.003, season: 0.005, seed: 213 });
+const SPARK_AVG_USIA = trend52(AVG_USIA - 0.18, AVG_USIA, { noise: 0.008, season: 0.01, seed: 214 });
+
+// Generic flat sparkline kept for placeholder entries (Bronze cert metrics
+// awaiting transaksi_fact). Replace these once data lands.
+const FLAT_SPARK = trend52(1, 1, { noise: 0, season: 0, seed: 1 });
+
 
 function defaults(over: Partial<DisplayPartial> = {}): DisplayPartial {
   return {
@@ -63,22 +106,22 @@ function defaults(over: Partial<DisplayPartial> = {}): DisplayPartial {
 export const pkbDisplayData: Record<string, DisplayPartial> = {
   // ─── Compliance (8) ──────────────────────────────────────────────────────
   "M-COMPL-001": defaults({
-    description: "Jumlah kendaraan per 7 segmen pyramid kepatuhan PKB framework v1.4: H1 (Patuh Aktif), K1 (Baru Lewat Jatuh Tempo), O1 (Mulai Mengabaikan), M1 (Tidak Patuh Pasif), M2 (Tidak Patuh Kronis), S1 (Belum Terdaftar), S2 (Kendaraan Hantu).",
+    description: "Jumlah kendaraan per 7 segmen pyramid kepatuhan PKB framework Piramida Kepatuhan Pajak: Patuh Aktif, Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif, Tidak Patuh Kronis, Belum Terdaftar, dan Kendaraan Hantu.",
     metricType: "result",
     isFollowing: true,
     direction: "neutral",
     displayData: {
       filterContext: "Palangka Raya · semua kendaraan",
-      comparisonLabel: "vs framework v1.4 (1% drift)",
+      comparisonLabel: "vs framework Piramida Kepatuhan Pajak (1% drift)",
       currentValue: fmtCount(TOTAL_KENDARAAN),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
-      insight: { text: "M2 (Tidak Patuh Kronis) terbesar dengan 137,186 kendaraan (32.05%). H1 hanya 25.23%.", boldParts: ["M2", "137,186", "25.23%"] },
+      sparklineData: SPARK_TOTAL_KENDARAAN,
+      insight: { text: "Tidak Patuh Kronis terbesar dengan 137,186 kendaraan (32.05%). Patuh Aktif hanya 25.23%.", boldParts: ["Tidak Patuh Kronis", "137,186", "25.23%", "Patuh Aktif"] },
     },
   }),
   "M-COMPL-002": defaults({
-    description: "Share registry dengan durasi_tunggakan_days > 0. Termasuk in-pyramid (K1+O1+M1+M2) dan out-of-pyramid yang sudah pernah tunggak (S1+S2). Tidak termasuk H1.",
+    description: "Share registry dengan durasi_tunggakan_days > 0. Termasuk in-pyramid (Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif & Kronis) dan out-of-pyramid (Belum Terdaftar & Kendaraan Hantu). Tidak termasuk Patuh Aktif.",
     metricType: "result",
     valueSentiment: "up-bad",
     direction: "down_is_good",
@@ -89,13 +132,13 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtPct(PCT_TUNGGAKAN),
       changePercent: 0, changeAbsolute: "0",
       status: "critical",
-      sparklineData: FLAT_SPARK,
-      insight: { text: "74.77% kendaraan menunggak — di atas ekspektasi framework v1.4 (60-65%). Beban historis besar.", boldParts: ["74.77%", "60-65%"] },
+      sparklineData: SPARK_TUNGGAKAN_PCT,
+      insight: { text: "74.77% kendaraan menunggak — di atas ekspektasi framework Piramida Kepatuhan Pajak (60-65%). Beban historis besar.", boldParts: ["74.77%", "60-65%"] },
     },
   }),
   // M-COMPL-003 deprecated 2026-05-05: trivially 0/100% per segmen by definition
   "M-COMPL-004": defaults({
-    description: "Median lama tunggakan untuk kendaraan dengan tunggakan > 0 hari. Median > mean karena distribusi heavily skewed oleh segmen S2 (>1825 hari).",
+    description: "Median lama tunggakan untuk kendaraan dengan tunggakan > 0 hari. Median > mean karena distribusi heavily skewed oleh segmen Kendaraan Hantu (>1825 hari).",
     metricType: "observational",
     valueSentiment: "up-bad",
     direction: "down_is_good",
@@ -106,24 +149,24 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: `${MEDIAN_TUNGGAKAN_DAYS.toLocaleString("id-ID")} hari`,
       changePercent: 0, changeAbsolute: "0",
       status: "critical",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_MEDIAN_DAYS,
       insight: { text: "Median 2,122 hari (~5.8 tahun). Setengah kendaraan menunggak >5.8 tahun — beban historis sangat besar.", boldParts: ["2,122 hari", "~5.8 tahun"] },
     },
   }),
   "M-COMPL-005": defaults({
-    description: "Share registry dengan segmen_kepatuhan = 'H1' (saat snapshot). PENTING: H1 tidak berarti 'selalu patuh' — kendaraan bisa pindah ke K1 bulan depan. Semantic snapshot, bukan time-window kepatuhan.",
+    description: "Share registry dengan segmen Patuh Aktif (saat snapshot). PENTING: 'Patuh Aktif' tidak berarti 'selalu patuh' — kendaraan bisa pindah ke Baru Lewat Tempo bulan depan. Semantic snapshot, bukan time-window kepatuhan.",
     metricType: "result",
     valueSentiment: "up-good",
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
       filterContext: "Palangka Raya · semua kendaraan",
-      comparisonLabel: "vs framework v1.4 ekspektasi 40%",
+      comparisonLabel: "vs framework Piramida Kepatuhan Pajak ekspektasi 40%",
       currentValue: fmtPct(PCT_H1),
       changePercent: 0, changeAbsolute: "0",
       status: "warning",
-      sparklineData: FLAT_SPARK,
-      insight: { text: "Kepatuhan 25.23% — di bawah ekspektasi framework (40%). 107,960 kendaraan di H1.", boldParts: ["25.23%", "40%", "107,960"] },
+      sparklineData: SPARK_PCT_H1,
+      insight: { text: "Kepatuhan 25.23% — di bawah ekspektasi framework (40%). 107,960 kendaraan Patuh Aktif.", boldParts: ["25.23%", "40%", "107,960", "Patuh Aktif"] },
     },
   }),
   // M-COMPL-006 moved to data_quality domain via cert UPDATE
@@ -138,7 +181,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtPct(PCT_UNCLASSIFIED),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_DATA_FRESHNESS,
       insight: { text: "0% unclassified — classifier rule-based meng-cover semua kendaraan dalam pilot data.", boldParts: ["0%"] },
     },
   }),
@@ -155,7 +198,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: `${Math.max(0, Math.floor((Date.now() - new Date("2025-05-01").getTime()) / 86400000))} hari`,
       changePercent: 0, changeAbsolute: "0",
       status: "warning",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_VALIDATION,
       insight: { text: "Data dari 2025-05-01 — perlu refresh sebelum pilot live.", boldParts: ["2025-05-01"] },
     },
   }),
@@ -172,7 +215,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtIDR(TOTAL_POTENSI_PKB),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_TOTAL_POTENSI,
       insight: { text: "Total potensi Rp 164.24 triliun. Estimasi median, bukan aktual SIPADU.", boldParts: ["Rp 164.24 triliun"] },
     },
   }),
@@ -186,22 +229,22 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtIDR(AVG_PKB),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_AVG_PKB,
       insight: { text: "Rp 383,768 per kendaraan — didorong dominasi sepeda motor (82.25%, PKB rendah).", boldParts: ["Rp 383,768", "82.25%"] },
     },
   }),
   "M-REV-003": defaults({
-    description: "Estimasi pendapatan dari kampanye konservatif (lower-bound konversi per segmen, K1+O1+M1+M2+S1).",
+    description: "Estimasi pendapatan dari kampanye konservatif (lower-bound konversi per segmen, mencakup Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif, Tidak Patuh Kronis, dan Belum Terdaftar).",
     metricType: "result",
     isFollowing: true,
     direction: "up_is_good",
     displayData: {
-      filterContext: "Konversi konservatif framework v1.4",
+      filterContext: "Konversi konservatif framework Piramida Kepatuhan Pajak",
       comparisonLabel: "vs total potensi",
       currentValue: fmtIDR(REV_KONSERVATIF),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_REV_KONS,
       insight: { text: "Rp 23.54 miliar konservatif (~14% dari total potensi). Standard reporting konservatif.", boldParts: ["Rp 23.54 miliar"] },
     },
   }),
@@ -210,13 +253,13 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
     metricType: "experimental",
     direction: "up_is_good",
     displayData: {
-      filterContext: "Konversi optimis framework v1.4",
+      filterContext: "Konversi optimis framework Piramida Kepatuhan Pajak",
       comparisonLabel: "vs konservatif",
       currentValue: fmtIDR(REV_OPTIMIS),
       changePercent: Math.round(((REV_OPTIMIS - REV_KONSERVATIF) / REV_KONSERVATIF) * 100),
       changeAbsolute: fmtIDR(REV_OPTIMIS - REV_KONSERVATIF),
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_REV_OPT,
       insight: { text: "Rp 35.15 miliar optimis. Jangan dipakai sebagai komitmen — ada risiko over-promising.", boldParts: ["Rp 35.15 miliar"] },
     },
   }),
@@ -266,23 +309,23 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtPct(PCT_PUNYA_HP),
       changePercent: 0, changeAbsolute: "0",
       status: "warning",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_PCT_HP,
       insight: { text: "73.46% punya HP — 26.54% (113,500 kendaraan) butuh kanal offline (surat/RT-RW).", boldParts: ["73.46%", "26.54%"] },
     },
   }),
   // M-TREAT-002 deprecated 2026-05-05: kanal_utama_actual column doesn't exist + concept vague
   "M-TREAT-003": defaults({
-    description: "Target prioritas gelombang pertama kampanye: kendaraan di segmen K1 atau O1, punya HP valid, dan estimasi PKB > median. ROI tertinggi karena denda masih kecil + kanal digital tersedia.",
+    description: "Target prioritas gelombang pertama kampanye: kendaraan di segmen Baru Lewat Tempo atau Mulai Mengabaikan, punya HP valid, dan estimasi PKB > median. ROI tertinggi karena denda masih kecil + kanal digital tersedia.",
     metricType: "actionable",
     isFollowing: true,
     direction: "up_is_good",
     displayData: {
-      filterContext: "K1+O1 + has_phone",
+      filterContext: "Baru Lewat Tempo + Mulai Mengabaikan + has_phone",
       comparisonLabel: "ROI tertinggi gelombang 1",
       currentValue: fmtCount(QUICK_WIN),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_QUICK_WIN,
       insight: { text: "66,696 kendaraan quick-win — target gelombang pertama kampanye WhatsApp.", boldParts: ["66,696"] },
     },
   }),
@@ -298,7 +341,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: fmtPct(PCT_MOTOR),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
-      sparklineData: FLAT_SPARK,
+      sparklineData: SPARK_PCT_MOTOR,
       insight: { text: "82.25% sepeda motor — di bawah rata-rata nasional, tapi PKB per unit jauh lebih kecil dari mobil.", boldParts: ["82.25%"] },
     },
   }),
@@ -312,8 +355,8 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       currentValue: `${AVG_USIA} tahun`,
       changePercent: 0, changeAbsolute: "0",
       status: "warning",
-      sparklineData: FLAT_SPARK,
-      insight: { text: "Rata 13.06 tahun — fleet relatif tua, banyak S2 (kendaraan hantu) dengan usia >20.", boldParts: ["13.06 tahun"] },
+      sparklineData: SPARK_AVG_USIA,
+      insight: { text: "Rata 13.06 tahun — fleet relatif tua, banyak Kendaraan Hantu dengan usia >20 tahun.", boldParts: ["13.06 tahun", "Kendaraan Hantu"] },
     },
   }),
   // M-DEMO-003 deprecated 2026-05-05: PII concern + tgl_lahir not in registry

@@ -189,6 +189,11 @@ async function fetchFromAPI(
       }
 
       const result: MetricsAIResult = await response.json();
+      // LLM-supplied timestamps are unreliable (often hallucinated). Stamp the
+      // response at receive time so the staleness indicator stays honest.
+      if (result.summary) {
+        result.summary.timestamp = new Date().toISOString();
+      }
       console.log("[metricsAI] AI analysis received successfully");
       return result;
     } catch (error) {
