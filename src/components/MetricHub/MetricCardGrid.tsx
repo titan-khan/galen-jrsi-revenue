@@ -10,7 +10,16 @@ interface MetricCardGridProps {
   onViewDetails?: (metricId: string) => void;
 }
 
-const DOMAIN_ORDER: MetricDomain[] = ['Accident Overview', 'Financial', 'Vehicle', 'TRL Risk', 'Cause Analysis', 'Data Quality', 'Time Analysis', 'Revenue', 'Cost', 'Fee', 'Margin', 'Operational', 'Performance'];
+const DOMAIN_ORDER: MetricDomain[] = [
+  // PKB Palangka Raya pilot — primary product domain
+  'Compliance', 'Revenue', 'Treatment', 'Demographic', 'SWDKLLJ', 'Operational',
+  // JRSI / road safety
+  'Safety', 'Claims', 'Vehicle', 'Risk', 'Cause', 'Temporal', 'Data Quality',
+  // Old labels (kept for backward compat)
+  'Accident Overview', 'Financial', 'TRL Risk', 'Cause Analysis', 'Time Analysis',
+  // Generic
+  'Cost', 'Fee', 'Margin', 'Performance', 'Governance',
+];
 
 function MetricCardSkeleton() {
   return (
@@ -62,7 +71,11 @@ function LoadingSkeleton() {
 
 const MetricCardGrid = ({ onViewDetails }: MetricCardGridProps) => {
   const { getFollowingMetrics, toggleFollow, isLoading } = useMetrics();
-  const followingMetrics = getFollowingMetrics();
+  // Demote experimental metrics (e.g. M-REV-004 Optimistic Revenue) from the headline
+  // exec dashboard. They remain discoverable in Browse but won't anchor decisions.
+  const followingMetrics = getFollowingMetrics().filter(
+    (m) => m.metricType !== "experimental"
+  );
 
   // Group followed metrics by domain (same pattern as BrowseMetricsTable)
   const grouped = useMemo(() => {

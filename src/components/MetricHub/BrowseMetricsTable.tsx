@@ -12,7 +12,16 @@ interface BrowseMetricsTableProps {
   onViewDetails?: (metricId: string) => void;
 }
 
-const DOMAIN_ORDER: MetricDomain[] = ['Accident Overview', 'Financial', 'Vehicle', 'TRL Risk', 'Cause Analysis', 'Data Quality', 'Time Analysis', 'Revenue', 'Cost', 'Fee', 'Margin', 'Operational', 'Performance'];
+const DOMAIN_ORDER: MetricDomain[] = [
+  // PKB Palangka Raya pilot — primary product domain
+  'Compliance', 'Revenue', 'Treatment', 'Demographic', 'SWDKLLJ', 'Operational',
+  // JRSI / road safety
+  'Safety', 'Claims', 'Vehicle', 'Risk', 'Cause', 'Temporal', 'Data Quality',
+  // Old labels (kept for backward compat)
+  'Accident Overview', 'Financial', 'TRL Risk', 'Cause Analysis', 'Time Analysis',
+  // Generic
+  'Cost', 'Fee', 'Margin', 'Performance', 'Governance',
+];
 
 const BrowseMetricsTable = React.forwardRef<HTMLDivElement, BrowseMetricsTableProps>(
   ({ onViewDetails }, ref) => {

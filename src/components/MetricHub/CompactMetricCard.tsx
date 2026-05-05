@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { MetricDefinition } from '@/types/metric';
+import { useMetrics } from '@/contexts/MetricsContext';
+import { MetricCertBadge } from '@/components/MetricCertBadge';
 
 interface CompactMetricCardProps {
   metric: MetricDefinition;
@@ -23,6 +25,8 @@ const DOMAIN_COLORS: Record<string, string> = {
 export function CompactMetricCard({ metric, onToggleFollow, onViewDetails }: CompactMetricCardProps) {
   const [isHoveringFollow, setIsHoveringFollow] = useState(false);
   const { displayData } = metric;
+  const { getCertForMetric } = useMetrics();
+  const cert = getCertForMetric(metric.id);
   const isPositive = displayData.changePercent >= 0;
   const isGood =
     metric.direction === 'down_is_good'
@@ -83,15 +87,18 @@ export function CompactMetricCard({ metric, onToggleFollow, onViewDetails }: Com
         )}
       </div>
 
-      {/* Domain badge */}
-      {metric.domain && (
-        <Badge
-          variant="outline"
-          className={cn('text-[10px] h-5 px-1.5 font-medium mb-2', domainColor)}
-        >
-          {metric.domain}
-        </Badge>
-      )}
+      {/* Domain + cert badges */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        {metric.domain && (
+          <Badge
+            variant="outline"
+            className={cn('text-[10px] h-5 px-1.5 font-medium', domainColor)}
+          >
+            {metric.domain}
+          </Badge>
+        )}
+        {cert && <MetricCertBadge cert={cert} size="sm" />}
+      </div>
 
       {/* Metric name */}
       <h3 className="text-[14px] font-medium text-foreground mb-2 pr-16 leading-tight">
