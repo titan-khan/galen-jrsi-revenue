@@ -79,55 +79,63 @@ export function useDynamicSuggestions(): SuggestionCardData[] {
         {
           id: 'explore-data',
           icon: 'Search',
-          category: 'Explore metrics',
-          title: 'Overview kecelakaan Kalimantan Tengah',
-          prompt: 'Berikan overview data kecelakaan Kalimantan Tengah — total kejadian, korban, dan tren bulanan',
+          category: 'Overview kepatuhan',
+          title: 'Snapshot kepatuhan PKB Palangka Raya',
+          prompt: 'Berikan overview kepatuhan PKB Palangka Raya — distribusi segmen, total tunggakan, dan tren bulanan',
         },
         {
           id: 'create-agent',
           icon: 'Plus',
           category: 'Set up monitoring',
-          title: 'Buat specialist baru untuk monitoring',
-          prompt: 'Bantu saya membuat specialist baru untuk monitoring kecelakaan',
+          title: 'Buat specialist PKB baru',
+          prompt: 'Bantu saya membuat specialist baru untuk monitoring kepatuhan PKB',
         }
       );
     }
 
-    // Pad to 7 with useful defaults so the 3+4 layout always fills
+    // Pad to 7 with useful defaults so the 3+4 layout always fills.
+    // PKB pilot context (Bapenda Kalteng — compliance, revenue recovery, treatment execution).
     const fillers: SuggestionCardData[] = [
       {
-        id: 'blackspot-analysis',
-        icon: 'MapPin',
-        category: 'Blackspot analysis',
-        title: 'Lokasi rawan kecelakaan tertinggi',
-        prompt: 'Tampilkan analisis blackspot — cluster mana yang memiliki TRL score tertinggi dan paling banyak kejadian?',
+        id: 'segment-distribution',
+        icon: 'PieChart',
+        category: 'Distribusi kepatuhan',
+        title: 'Breakdown per segmen wajib pajak',
+        prompt: 'Tampilkan distribusi kendaraan per segmen kepatuhan (Patuh Aktif, Mulai Mengabaikan, Tidak Patuh Pasif, Tidak Patuh Kronis, Kendaraan Hantu) — segmen mana yang paling besar dan punya potensi recovery tertinggi?',
       },
       {
-        id: 'santunan-overview',
+        id: 'arrears-recovery',
         icon: 'DollarSign',
-        category: 'Santunan overview',
-        title: 'Total klaim tersalurkan per wilayah',
-        prompt: 'Berapa total santunan Jasa Raharja yang tersalurkan? Breakdown per klaim A (MD) dan klaim B (LL)',
+        category: 'Potensi recovery PKB',
+        title: 'Estimasi tunggakan & potensi tagih',
+        prompt: 'Berapa total estimasi PKB tertunggak per segmen, dan berapa potensi recovery realistis dengan program penagihan terstruktur 90 hari?',
       },
       {
-        id: 'vehicle-profile',
-        icon: 'Car',
-        category: 'Vehicle profile',
-        title: 'Kendaraan paling sering terlibat',
-        prompt: 'Analisis kendaraan yang paling sering terlibat kecelakaan — brand, model, dan tipe apa yang dominan?',
+        id: 'kabupaten-priority',
+        icon: 'MapPin',
+        category: 'Wilayah prioritas',
+        title: 'Kabupaten tunggakan tertinggi',
+        prompt: 'Kabupaten/kota mana yang punya konsentrasi tunggakan PKB tertinggi? Rekomendasikan urutan prioritas operasi penagihan terkoordinasi.',
       },
       {
-        id: 'cause-4m',
+        id: 'arrears-cause',
         icon: 'Search',
         category: 'Cause analysis',
-        title: 'Faktor penyebab utama (4M)',
-        prompt: 'Apa faktor penyebab utama kecelakaan berdasarkan framework 4M (Man, Machine, Medium, Method)?',
+        title: 'Akar masalah kepatuhan rendah',
+        prompt: 'Apa akar masalah utama segmen Tidak Patuh Kronis (cakupan kontak, durasi tunggakan, tidak ada enforcement) — dan rekomendasi prioritas intervensi?',
+      },
+      {
+        id: 'channel-coverage',
+        icon: 'MessageSquare',
+        category: 'Cakupan kanal digital',
+        title: 'Kendaraan terjangkau via WhatsApp/SMS',
+        prompt: 'Berapa persen kendaraan menunggak yang punya nomor handphone valid? Segmen mana yang paling besar peluang sukses tagih digitalnya?',
       },
       {
         id: 'ask-anything',
         icon: 'MessageSquare',
         category: 'Ask anything',
-        title: 'Tanya apa saja tentang data JRSI',
+        title: 'Tanya apa saja tentang data PKB',
         prompt: '',
       },
     ];
