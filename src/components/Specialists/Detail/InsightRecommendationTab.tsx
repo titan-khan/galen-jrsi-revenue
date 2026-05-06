@@ -40,6 +40,7 @@ import type {
   SpecialistInsight,
   SpecialistRecommendation,
   CrossSpecialistSignal,
+  RecommendationAssignee,
 } from '@/types/specialist';
 import type { ExecutiveSummaryData, RootCauseItem } from '@/services/specialistRunService';
 
@@ -55,11 +56,21 @@ interface InsightRecommendationTabProps {
   /** Pre-computed MECE grouped data (null when no cross-references) */
   grouped: GroupedInsightData | null;
   isLoading: boolean;
-  onApprove: (recId: string) => void;
-  onReject: (recId: string) => void;
+  onApprove: (
+    recId: string,
+    payload: { actor: string; note?: string; assignee?: RecommendationAssignee },
+  ) => void | Promise<void>;
+  onReject: (
+    recId: string,
+    payload: { actor: string; note: string },
+  ) => void | Promise<void>;
+  onReassign?: (
+    recId: string,
+    payload: { actor: string; assignee: RecommendationAssignee },
+  ) => void | Promise<void>;
   onExecute?: (recId: string) => void;
   onMeasure?: (recId: string) => void;
-  onDeepDive?: (insight: { headline: string }) => void;
+  onDeepDive?: (insight: { id?: string; headline: string }) => void;
   onRunNow?: () => void;
   isRunning?: boolean;
 }
@@ -177,6 +188,7 @@ export function InsightRecommendationTab({
   isLoading,
   onApprove,
   onReject,
+  onReassign,
   onExecute,
   onMeasure,
   onDeepDive,
@@ -519,9 +531,12 @@ export function InsightRecommendationTab({
           <RecommendationDetailPanel
             recommendation={selectedRec}
             rootCause={selectedRecContext?.rootCause}
+            insights={insights}
             onClose={() => { setSelectedRec(null); setSelectedRecContext(null); }}
             onApprove={onApprove}
             onReject={onReject}
+            onReassign={onReassign}
+            onDeepDive={onDeepDive}
           />
         )}
       </div>

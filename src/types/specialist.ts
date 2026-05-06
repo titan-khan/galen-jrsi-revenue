@@ -109,6 +109,35 @@ export interface StructuredRecommendationContent {
   };
   quarterlyImpact: string;
   tactics: string[];
+  /** Things that could go wrong (downside vs the upside in quarterlyImpact) */
+  riskFactors?: string[];
+  /** Post-implementation KPIs to monitor — how do we know it worked? */
+  successMetrics?: string[];
+  /** Prerequisite blockers: data access, MoU, budget, multi-instansi coordination */
+  dependencies?: string[];
+}
+
+/** PIC (Penanggung Jawab) — who's accountable for executing this action */
+export interface RecommendationAssignee {
+  name: string;
+  role: string;
+  unit?: string; // e.g. "Bidang PKB", "UPTD Palangka Raya"
+}
+
+export type RecommendationActivityAction =
+  | 'created'
+  | 'approved'
+  | 'rejected'
+  | 'executed'
+  | 'measured'
+  | 'reassigned';
+
+export interface RecommendationActivityEntry {
+  id: string;
+  action: RecommendationActivityAction;
+  actor?: string;
+  note?: string;
+  createdAt: string;
 }
 
 export interface SpecialistRecommendation {
@@ -130,6 +159,17 @@ export interface SpecialistRecommendation {
   approvedAt?: string;
   executedAt?: string;
   createdAt: string;
+  // ── Governance fields (PKB pilot) ──
+  /** PIC — who will execute this action */
+  assignee?: RecommendationAssignee;
+  /** Note captured at approval */
+  approvalNote?: string;
+  /** Reason captured at rejection */
+  rejectedNote?: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  /** Audit trail (created → approved/rejected → reassigned → executed → measured) */
+  activityLog?: RecommendationActivityEntry[];
   /** Platform-first CTA: if LLM recommends creating a Galen specialist for ongoing monitoring */
   galenAction?: {
     type: 'create_specialist';
