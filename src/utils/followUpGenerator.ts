@@ -1,9 +1,12 @@
 /**
  * followUpGenerator.ts
  *
- * Generates 2-3 contextual follow-up question suggestions after an assistant response.
- * All questions are grounded in real metric data — no hallucination.
- * Pure function, no side effects, no API calls.
+ * Generates 2-3 contextual follow-up questions after an assistant response.
+ * PKB pilot domain (Pajak Kendaraan Bermotor — Jasa Raharja Kalteng).
+ *
+ * Pure function, no side effects, no API calls. Used as the immediate
+ * deterministic answer; followUpService.ts then enhances via the
+ * follow-up-questions edge function (Indonesian AI-generated).
  */
 
 import type { MetricDefinition } from '@/types/metric';
@@ -17,214 +20,310 @@ export interface FollowUpQuestion {
   category: 'next-step' | 'action' | 'correlation' | 'drill-down' | 'trend';
 }
 
-interface ScoredCandidate extends FollowUpQuestion {
-  priority: number;
-  metricId?: string; // for deduplication
+// ── PKB domain knowledge ───────────────────────────────────────────────────
+
+const SEGMEN_NAMES = [
+  'Patuh Aktif',
+  'Baru Lewat Jatuh Tempo',
+  'Mulai Mengabaikan',
+  'Tidak Patuh Pasif',
+  'Tidak Patuh Kronis',
+  'Belum Terdaftar',
+  'Kendaraan Hantu',
+];
+
+const KABUPATEN_NAMES = [
+  'Palangka Raya', 'Kotawaringin Barat', 'Kotawaringin Timur',
+  'Kapuas', 'Barito Selatan', 'Barito Utara', 'Sukamara',
+  'Lamandau', 'Seruyan', 'Katingan', 'Pulang Pisau',
+  'Gunung Mas', 'Barito Timur', 'Murung Raya',
+];
+
+interface DetectedTopics {
+  segments: string[];
+  kabupatens: string[];
+  hasAmnesti: boolean;
+  hasTreatment: boolean;
+  hasKanal: boolean;
+  hasRevenue: boolean;
+  hasTunggakan: boolean;
+  hasRaci: boolean;
+  hasPhone: boolean;
+  hasMetric: boolean;
+  hasTrend: boolean;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// Find segments / kabupatens in `text`, ordered by their first occurrence in the
+// text. Picks the longest match at each position so "Tidak Patuh Pasif" wins
+// over "Tidak Patuh".
+function findOrderedMatches(text: string, names: string[]): string[] {
+  const lower = text.toLowerCase();
+  // Sort longest-first so longer names get matched before shorter prefixes
+  const sorted = [...names].sort((a, b) => b.length - a.length);
+  const positions: { name: string; pos: number }[] = [];
+  for (const name of sorted) {
+    const pos = lower.indexOf(name.toLowerCase());
+    if (pos !== -1) positions.push({ name, pos });
+  }
+  // De-duplicate by position-overlap: if a longer match already covers this
+  // position, skip the shorter one.
+  positions.sort((a, b) => a.pos - b.pos);
+  const kept: { name: string; pos: number }[] = [];
+  for (const p of positions) {
+    const overlapsLonger = kept.some(
+      (k) => p.pos >= k.pos && p.pos < k.pos + k.name.length
+    );
+    if (!overlapsLonger) kept.push(p);
+  }
+  return kept.map((p) => p.name);
+}
+
+function detectTopics(text: string): DetectedTopics {
+  const lower = text.toLowerCase();
+  return {
+    segments: findOrderedMatches(text, SEGMEN_NAMES),
+    kabupatens: findOrderedMatches(text, KABUPATEN_NAMES),
+    hasAmnesti: /amnesti|penghapusan|pemutihan/.test(lower),
+    hasTreatment: /treatment|tindakan|intervensi|aksi utama|rekomendasi/.test(lower),
+    hasKanal: /whatsapp|kanal|saluran|surat|rt-rw|samsat keliling/.test(lower),
+    hasRevenue: /pkb|pendapatan|tertagih|realisasi|miliar|triliun|juta/.test(lower),
+    hasTunggakan: /tunggakan|denda|telat|jatuh tempo|hari/.test(lower),
+    hasRaci: /raci|jasa raharja|bapenda|polri|kelurahan/.test(lower),
+    hasPhone: /nomor handphone|hp|whatsapp/.test(lower),
+    hasMetric: /metrik|metric|formula|sertifikasi|bronze|silver|gold/.test(lower),
+    hasTrend: /bulan|tren|trend|periode|2025|2026|historis/.test(lower),
+  };
+}
+
+// ── Generator ──────────────────────────────────────────────────────────────
+
+interface ScoredCandidate extends FollowUpQuestion {
+  priority: number;
+  // dedup key — questions sharing the same key are considered duplicates
+  dedupKey: string;
+}
+
+export function generateFollowUpQuestions(
+  responseText: string,
+  _summary: ParsedSummary | null,
+  _metrics: MetricDefinition[]
+): FollowUpQuestion[] {
+  if (!responseText || responseText.length < 50) return [];
+
+  const topics = detectTopics(responseText);
+  const candidates: ScoredCandidate[] = [];
+
+  const primarySegment = topics.segments[0];
+  const secondarySegment = topics.segments[1];
+  const primaryKabupaten = topics.kabupatens[0];
+
+  // ── 1. Drill into the primary segmen mentioned ─────────────────────────
+  if (primarySegment) {
+    candidates.push({
+      id: `drill-segmen-kabupaten`,
+      text: `Bagaimana sebaran segmen ${primarySegment} per kabupaten di Kalteng?`,
+      category: 'drill-down',
+      priority: 10,
+      dedupKey: `drill-${primarySegment}`,
+    });
+
+    candidates.push({
+      id: `treatment-segmen`,
+      text: `Apa rekomendasi treatment dan kanal utama untuk segmen ${primarySegment}?`,
+      category: 'action',
+      priority: 9,
+      dedupKey: `treatment-${primarySegment}`,
+    });
+  }
+
+  // ── 2. Cross-segmen comparison ─────────────────────────────────────────
+  if (primarySegment && secondarySegment) {
+    candidates.push({
+      id: `compare-segmen`,
+      text: `Bandingkan profil tunggakan & cakupan handphone antara ${primarySegment} dan ${secondarySegment}.`,
+      category: 'correlation',
+      priority: 8,
+      dedupKey: `compare-${primarySegment}-${secondarySegment}`,
+    });
+  }
+
+  // ── 3. Amnesti follow-up ───────────────────────────────────────────────
+  if (topics.hasAmnesti) {
+    candidates.push({
+      id: `amnesti-erosi`,
+      text: 'Berapa risiko erosi kepatuhan ke segmen Patuh Aktif jika amnesti diberlakukan 90 hari?',
+      category: 'correlation',
+      priority: 9,
+      dedupKey: 'amnesti-erosi',
+    });
+    candidates.push({
+      id: `amnesti-revenue`,
+      text: 'Estimasi tambahan pendapatan PKB dari skenario Konservatif vs Moderat vs Optimis untuk amnesti ini.',
+      category: 'next-step',
+      priority: 7,
+      dedupKey: 'amnesti-revenue',
+    });
+  }
+
+  // ── 4. Treatment / kanal deep-dive ─────────────────────────────────────
+  if (topics.hasTreatment && !topics.hasKanal) {
+    candidates.push({
+      id: `treatment-kanal`,
+      text: 'Saluran mana yang paling efektif: WhatsApp, surat fisik, atau koordinasi RT-RW/SAMSAT?',
+      category: 'drill-down',
+      priority: 7,
+      dedupKey: 'treatment-kanal',
+    });
+  }
+
+  if (topics.hasKanal && topics.hasPhone) {
+    candidates.push({
+      id: `kanal-coverage`,
+      text: 'Berapa cakupan nomor handphone per segmen, dan segmen mana yang butuh saluran offline?',
+      category: 'drill-down',
+      priority: 6,
+      dedupKey: 'kanal-coverage',
+    });
+  }
+
+  // ── 5. Revenue / tunggakan deep-dive ───────────────────────────────────
+  if (topics.hasRevenue) {
+    candidates.push({
+      id: `revenue-trend`,
+      text: 'Tampilkan tren realisasi PKB & SWDKLLJ per bulan untuk 13 bulan terakhir.',
+      category: 'trend',
+      priority: 7,
+      dedupKey: 'revenue-trend',
+    });
+
+    if (!primaryKabupaten) {
+      candidates.push({
+        id: `revenue-kabupaten`,
+        text: 'Kabupaten mana yang menyumbang potensi PKB tertagih tertinggi?',
+        category: 'drill-down',
+        priority: 6,
+        dedupKey: 'revenue-kabupaten',
+      });
+    }
+  }
+
+  if (topics.hasTunggakan && !topics.hasAmnesti) {
+    candidates.push({
+      id: `tunggakan-action`,
+      text: 'Aksi prioritas 30 hari untuk menurunkan tunggakan PKB tanpa mengganggu segmen patuh.',
+      category: 'action',
+      priority: 7,
+      dedupKey: 'tunggakan-action',
+    });
+  }
+
+  // ── 6. RACI / stakeholder follow-up ────────────────────────────────────
+  if (topics.hasRaci || topics.hasTreatment) {
+    candidates.push({
+      id: `raci-stakeholder`,
+      text: 'Stakeholder mana (Jasa Raharja, Bapenda, Samsat, Polri, Kelurahan) yang Accountable untuk eksekusi ini?',
+      category: 'next-step',
+      priority: 5,
+      dedupKey: 'raci-stakeholder',
+    });
+  }
+
+  // ── 7. Kabupaten drill-down ────────────────────────────────────────────
+  if (primaryKabupaten) {
+    candidates.push({
+      id: `kabupaten-segmen`,
+      text: `Distribusi 7 segmen kepatuhan di ${primaryKabupaten} — mana yang paling kritis?`,
+      category: 'drill-down',
+      priority: 8,
+      dedupKey: `kabupaten-segmen-${primaryKabupaten}`,
+    });
+  }
+
+  if (topics.kabupatens.length === 0 && (primarySegment || topics.hasRevenue)) {
+    candidates.push({
+      id: `tipologi-wilayah`,
+      text: 'Bagaimana perbedaan profil kepatuhan antara wilayah Pusat Urban, Hub Industri, dan Hinterland?',
+      category: 'correlation',
+      priority: 5,
+      dedupKey: 'tipologi-wilayah',
+    });
+  }
+
+  // ── 8. Metric / governance follow-up ───────────────────────────────────
+  if (topics.hasMetric) {
+    candidates.push({
+      id: `metric-formula`,
+      text: 'Tampilkan formula & sumber data persis untuk metrik yang baru saja disebut.',
+      category: 'drill-down',
+      priority: 6,
+      dedupKey: 'metric-formula',
+    });
+  }
+
+  // ── 9. Default fallback questions if response is generic ──────────────
+  if (candidates.length === 0) {
+    candidates.push(
+      {
+        id: 'overview-pyramid',
+        text: 'Ringkas distribusi 7 segmen kepatuhan PKB di Palangka Raya.',
+        category: 'next-step',
+        priority: 5,
+        dedupKey: 'overview-pyramid',
+      },
+      {
+        id: 'overview-revenue',
+        text: 'Berapa total potensi PKB tertagih dan gap vs target framework?',
+        category: 'next-step',
+        priority: 4,
+        dedupKey: 'overview-revenue',
+      },
+      {
+        id: 'overview-priority',
+        text: 'Segmen mana yang harus diprioritaskan 30 hari ke depan dan kenapa?',
+        category: 'action',
+        priority: 4,
+        dedupKey: 'overview-priority',
+      },
+    );
+  }
+
+  // ── Sort, dedupe, top 3 ────────────────────────────────────────────────
+  candidates.sort((a, b) => b.priority - a.priority);
+
+  const seenKeys = new Set<string>();
+  const selected: FollowUpQuestion[] = [];
+
+  for (const c of candidates) {
+    if (seenKeys.has(c.dedupKey)) continue;
+    seenKeys.add(c.dedupKey);
+    selected.push({ id: c.id, text: c.text, category: c.category });
+    if (selected.length >= 3) break;
+  }
+
+  return selected;
+}
+
+// ── Legacy exports (still used by AssistantMessage to feed AI service) ─────
+// extractMentionedMetrics is kept for backward compatibility with the
+// followUpService call signature. With PKB metrics largely empty in this
+// pilot, it usually returns an empty array — that's fine, the edge function
+// builds its prompt from response text + topic detection.
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Find metrics whose names appear in the response text.
- * Uses word-boundary matching to avoid partial matches
- * (e.g. "Revenue" shouldn't match inside "Ticket Revenue").
- * Sorts by name length descending to prefer longer (more specific) matches first.
- */
 export function extractMentionedMetrics(
   responseText: string,
   metrics: MetricDefinition[]
 ): MetricDefinition[] {
+  if (!responseText || metrics.length === 0) return [];
   const text = responseText.toLowerCase();
   const matched: MetricDefinition[] = [];
-
-  // Sort by name length descending so "Ticket Revenue" matches before "Revenue"
   const sorted = [...metrics].sort((a, b) => b.name.length - a.name.length);
-
   for (const metric of sorted) {
     const pattern = new RegExp('\\b' + escapeRegex(metric.name.toLowerCase()) + '\\b');
-    if (pattern.test(text)) {
-      matched.push(metric);
-    }
+    if (pattern.test(text)) matched.push(metric);
   }
-
   return matched;
-}
-
-// ── Main Generator ──────────────────────────────────────────────────────────
-
-export function generateFollowUpQuestions(
-  responseText: string,
-  summary: ParsedSummary | null,
-  metrics: MetricDefinition[]
-): FollowUpQuestion[] {
-  if (!responseText || metrics.length === 0) return [];
-
-  const mentioned = extractMentionedMetrics(responseText, metrics);
-  const mentionedIds = new Set(mentioned.map((m) => m.id));
-  const candidates: ScoredCandidate[] = [];
-
-  // ── 1. Deep-dive into the most critical mentioned metric (highest priority)
-  // We avoid echoing summary.nextSteps because that content may reference
-  // AI-recommended actions that weren't actually in the visible response.
-  const mostCritical = mentioned.find(
-    (m) =>
-      m.displayData.status === 'critical' &&
-      m.displayData.currentValue !== '---'
-  );
-  if (mostCritical) {
-    const absChange = Math.abs(mostCritical.displayData.changePercent);
-    const dir = mostCritical.displayData.changePercent < 0 ? 'dropped' : 'risen';
-    candidates.push({
-      id: `deep-dive-${mostCritical.id}`,
-      text: `Why has ${mostCritical.name} ${dir} ${absChange}% and what's driving this?`,
-      category: 'next-step',
-      priority: 10,
-      metricId: mostCritical.id,
-    });
-  } else if (mentioned.length > 0) {
-    // Fallback: ask about the first mentioned metric's key drivers
-    const anchor = mentioned[0];
-    candidates.push({
-      id: `deep-dive-${anchor.id}`,
-      text: `What are the key drivers behind ${anchor.name} this period?`,
-      category: 'next-step',
-      priority: 10,
-      metricId: anchor.id,
-    });
-  }
-
-  // ── 2. Action questions for critical/warning mentioned metrics ─────────
-  for (const metric of mentioned) {
-    if (
-      (metric.displayData.status === 'critical' || metric.displayData.status === 'warning') &&
-      metric.displayData.currentValue !== '---'
-    ) {
-      const absChange = Math.abs(metric.displayData.changePercent);
-      const changeDesc = metric.displayData.changePercent < 0
-        ? `down ${absChange}%`
-        : `up ${absChange}%`;
-      candidates.push({
-        id: `action-${metric.id}`,
-        text: `What actions can improve ${metric.name}? Currently at ${metric.displayData.currentValue}, ${changeDesc}`,
-        category: 'action',
-        priority: 8,
-        metricId: metric.id,
-      });
-    }
-  }
-
-  // ── 3. Correlation questions (cross-domain) ───────────────────────────
-  const mentionedDomains = new Map<string, MetricDefinition>();
-  for (const m of mentioned) {
-    if (m.domain && !mentionedDomains.has(m.domain)) {
-      mentionedDomains.set(m.domain, m);
-    }
-  }
-
-  if (mentionedDomains.size >= 2) {
-    const entries = Array.from(mentionedDomains.values());
-    const a = entries[0];
-    const b = entries[1];
-    const changeDir = a.displayData.changePercent < 0 ? 'decline' : 'increase';
-    const absA = Math.abs(a.displayData.changePercent);
-    candidates.push({
-      id: `corr-${a.id}-${b.id}`,
-      text: `Is the ${absA}% ${changeDir} in ${a.name} related to ${b.name} being ${b.displayData.status}?`,
-      category: 'correlation',
-      priority: 7,
-      metricId: a.id,
-    });
-  } else if (mentioned.length > 0) {
-    // Find a critical/warning metric NOT mentioned, from a different domain
-    const anchor = mentioned[0];
-    const troubleMetric = metrics.find(
-      (m) =>
-        !mentionedIds.has(m.id) &&
-        m.displayData.status !== 'healthy' &&
-        m.domain !== anchor.domain &&
-        m.displayData.currentValue !== '---'
-    );
-    if (troubleMetric) {
-      const changeDir = anchor.displayData.changePercent < 0 ? 'decline' : 'trend';
-      const absTrouble = Math.abs(troubleMetric.displayData.changePercent);
-      const troubleDir = troubleMetric.displayData.changePercent < 0 ? 'down' : 'up';
-      candidates.push({
-        id: `corr-${anchor.id}-${troubleMetric.id}`,
-        text: `Could the ${changeDir} in ${anchor.name} be impacted by ${troubleMetric.name}? It's ${troubleMetric.displayData.status}, ${troubleDir} ${absTrouble}%`,
-        category: 'correlation',
-        priority: 6,
-        metricId: troubleMetric.id,
-      });
-    }
-  }
-
-  // ── 4. Drill-down by route ─────────────────────────────────────────────
-  for (const metric of mentioned.slice(0, 2)) {
-    if (metric.displayData.currentValue !== '---') {
-      candidates.push({
-        id: `drill-${metric.id}`,
-        text: `How does ${metric.name} break down by route this period?`,
-        category: 'drill-down',
-        priority: 5,
-        metricId: metric.id,
-      });
-    }
-  }
-
-  // ── 5. Trend questions (filler) ────────────────────────────────────────
-  for (const metric of mentioned.slice(0, 2)) {
-    if (metric.displayData.currentValue !== '---') {
-      candidates.push({
-        id: `trend-${metric.id}`,
-        text: `Show me the ${metric.name} trend over the last 6 months`,
-        category: 'trend',
-        priority: 3,
-        metricId: metric.id,
-      });
-    }
-  }
-
-  // ── 6. Sort, deduplicate, select top 3 ────────────────────────────────
-  candidates.sort((a, b) => b.priority - a.priority);
-
-  const seenMetricIds = new Set<string>();
-  const selected: FollowUpQuestion[] = [];
-
-  for (const candidate of candidates) {
-    if (candidate.metricId && seenMetricIds.has(candidate.metricId)) continue;
-    if (candidate.metricId) seenMetricIds.add(candidate.metricId);
-
-    selected.push({
-      id: candidate.id,
-      text: candidate.text,
-      category: candidate.category,
-    });
-
-    if (selected.length >= 3) break;
-  }
-
-  // ── 7. Fallback: if < 2, add unmentioned critical metrics ─────────────
-  if (selected.length < 2) {
-    const critical = metrics.filter(
-      (m) =>
-        m.displayData.status === 'critical' &&
-        !seenMetricIds.has(m.id) &&
-        m.displayData.currentValue !== '---'
-    );
-    for (const cm of critical) {
-      selected.push({
-        id: `attention-${cm.id}`,
-        text: `${cm.name} is ${cm.displayData.status} at ${cm.displayData.currentValue} — what should we do?`,
-        category: 'action',
-      });
-      seenMetricIds.add(cm.id);
-      if (selected.length >= 2) break;
-    }
-  }
-
-  return selected.slice(0, 3);
 }

@@ -13,6 +13,7 @@ import {
 import type { MetricDomain } from '@/types/metric';
 import { generateHandle } from '@/utils/handle';
 import { matchSuggestedMetrics, autoGenerateRulesFromMetrics, BUSINESS_VIEW_TO_DOMAIN } from '@/utils/specialistDefaults';
+import { getMetricDomainsForBusinessView } from '@/data/pkbRegistry';
 import { WizardLayout } from '@/components/Specialists/CreateWizard/WizardLayout';
 import { WizardStep } from '@/components/Specialists/CreateWizard/WizardSidebar';
 import { OverviewStep } from '@/components/Specialists/CreateWizard/OverviewStep';
@@ -87,28 +88,16 @@ const HireSpecialist = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── BusinessView → metric domain mapping (matched to actual metric domains) ──
-  const BUSINESS_VIEW_DOMAINS: Record<BusinessView, MetricDomain[]> = useMemo(() => ({
-    // JRSI business views
-    'accident-monitoring': ['Accident Overview', 'Time Analysis'],
-    'risk-mapping': ['TRL Risk'],
-    'vehicle-intelligence': ['Vehicle'],
-    'santunan-claims': ['Financial'],
-    'cause-analysis': ['Cause Analysis'],
-    'data-quality': ['Data Quality'],
-    // Legacy views (kept for type safety)
-    revenue: ['Revenue', 'Margin'],
-    operations: ['Operational', 'Performance'],
-    'customer-experience': ['Operational', 'Performance'],
-    'cost-optimization': ['Cost', 'Fee'],
-    'risk-compliance': ['Cost', 'Operational'],
-    'fleet-assets': ['Operational', 'Performance'],
-  }), []);
+  // Local map removed — single source now lives in pkbRegistry.ts via
+  // getMetricDomainsForBusinessView(). See import at top of file.
 
   // Fully dynamic focus area suggestions based on real metric performance
   const useCaseSuggestions = useMemo(() => {
     if (!businessView) return [];
 
-    const domains = BUSINESS_VIEW_DOMAINS[businessView];
+    // Single source of truth (pkbRegistry.ts). Returns [] for unknown views
+    // instead of crashing.
+    const domains = getMetricDomainsForBusinessView(businessView);
 
     // Get domain-relevant metrics; fall back to all metrics if none match
     let domainMetrics = allSystemMetrics.filter(
@@ -118,13 +107,12 @@ const HireSpecialist = () => {
       domainMetrics = [...allSystemMetrics];
     }
 
-    // AI suggestions for this domain (with fallback)
-    let domainAiSuggestions = aiSuggestions.filter(
-      (s) => domains.includes(s.domain),
+    // AI suggestions for this domain — STRICT filter, no fallback. Falling
+    // back to "all aiSuggestions" used to leak unrelated metrics across views
+    // (e.g. JRSI accident metrics into Revenue & Arrears), breaking MECE.
+    const domainAiSuggestions = aiSuggestions.filter(
+      (s) => s.domain && domains.includes(s.domain as MetricDomain),
     );
-    if (domainAiSuggestions.length === 0) {
-      domainAiSuggestions = [...aiSuggestions];
-    }
 
     type Suggestion = {
       id: string;
@@ -152,7 +140,7 @@ const HireSpecialist = () => {
       addSuggestion({
         id: `ai-issue-${m.id}`,
         name: `${m.name} Monitoring`,
-        description: `${m.name} sudah masuk zona kritis. Spesialis ini menelusuri kabupaten, ruas, dan jam puncak yang paling banyak menyumbang, lalu mengusulkan intervensi cepat untuk memutus laju korban kecelakaan dan klaim santunan.`,
+        description: `${m.name} sudah masuk zona kritis. Spesialis ini menelusuri kabupaten, segmen kepatuhan, dan kanal yang paling banyak menyumbang, lalu mengusulkan intervensi cepat untuk memutus laju kerugian PKB & SWDKLLJ.`,
         reason: `critical · ${m.displayData.currentValue}`,
         accentType: 'warning',
       }, m.id);
@@ -166,7 +154,7 @@ const HireSpecialist = () => {
       addSuggestion({
         id: `ai-issue-${m.id}`,
         name: `${m.name} Monitoring`,
-        description: `${m.name} mulai bergerak ke arah yang merugikan. Spesialis ini menangkap sinyal sejak dini di tiap wilayah dan kelompok berisiko, lalu menyiapkan langkah pencegahan sebelum tren berubah jadi lonjakan korban dan klaim.`,
+        description: `${m.name} mulai bergerak ke arah yang merugikan. Spesialis ini menangkap sinyal sejak dini di tiap kabupaten dan segmen kepatuhan, lalu menyiapkan langkah pencegahan sebelum tren berubah jadi lonjakan tunggakan.`,
         reason: `warning · ${m.displayData.currentValue}`,
         accentType: 'warning',
       }, m.id);
@@ -180,7 +168,7 @@ const HireSpecialist = () => {
       addSuggestion({
         id: `ai-trend-${m.id}`,
         name: `${m.name} Optimization`,
-        description: `Saat ${m.name} bergerak signifikan, spesialis ini mengurai akar masalahnya per kabupaten dan periode, lalu menyusun rencana perbaikan agar risiko korban dan beban santunan ke depan tetap terkendali.`,
+        description: `Saat ${m.name} bergerak signifikan, spesialis ini mengurai akar masalahnya per kabupaten dan segmen kepatuhan, lalu menyusun rencana perbaikan agar realisasi PKB & SWDKLLJ ke depan tetap terkendali.`,
         reason: `${m.displayData.changePercent.toFixed(1)}% decline`,
         accentType: 'warning',
       }, m.id);
@@ -191,7 +179,7 @@ const HireSpecialist = () => {
       addSuggestion({
         id: `ai-suggest-${ai.metricId}`,
         name: `${ai.metricName} Specialist`,
-        description: `Spesialis ini mengawal ${ai.metricName} secara proaktif — membaca sinyal yang relevan untuk keselamatan jalan dan klaim, lalu memberi rekomendasi konkret yang membantu pencegahan kecelakaan dan tata kelola santunan Jasa Raharja.`,
+        description: `Spesialis ini mengawal ${ai.metricName} secara proaktif — membaca sinyal kepatuhan PKB di tiap segmen dan kabupaten, lalu memberi rekomendasi konkret yang menjaga realisasi pendapatan dan kualitas portofolio kepatuhan.`,
         reason: `${Math.round(ai.confidence * 100)}% confidence`,
         accentType: 'info',
       }, ai.metricId);
@@ -205,14 +193,14 @@ const HireSpecialist = () => {
       addSuggestion({
         id: `ai-track-${m.id}`,
         name: `${m.name} Tracking`,
-        description: `Spesialis ini mengikuti pergerakan ${m.name} dari waktu ke waktu — pola musiman, perubahan struktural, dan deviasi dari target — supaya indikator ini terus selaras dengan misi pencegahan kecelakaan dan penyaluran santunan.`,
+        description: `Spesialis ini mengikuti pergerakan ${m.name} dari waktu ke waktu — pola musiman, perubahan struktural, dan deviasi dari target framework Piramida Kepatuhan Pajak — supaya indikator ini selaras dengan misi recovery PKB & SWDKLLJ.`,
         reason: `${m.displayData.changePercent > 0 ? '+' : ''}${m.displayData.changePercent.toFixed(1)}%`,
         accentType: 'info',
       }, m.id);
     }
 
     return suggestions.slice(0, 3);
-  }, [businessView, allSystemMetrics, aiSuggestions, BUSINESS_VIEW_DOMAINS]);
+  }, [businessView, allSystemMetrics, aiSuggestions]);
 
   // When business view changes, reset dependents
   const handleBusinessViewChange = useCallback((view: BusinessView) => {

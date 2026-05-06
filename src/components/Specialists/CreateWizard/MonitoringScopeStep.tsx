@@ -5,26 +5,10 @@ import { SVGSparkline } from '@/components/MetricHub/SVGSparkline';
 import { MetricChips } from './MetricChips';
 import { cn } from '@/lib/utils';
 import type { BusinessView, MetricConfig, Specialist } from '@/types/specialist';
-import type { MetricDefinition, MetricDomain, AISuggestionItem, AISummaryData } from '@/types/metric';
-
-// ── BusinessView → metric domain mapping ────────────────────────────
-
-const BUSINESS_VIEW_DOMAINS: Record<BusinessView, MetricDomain[]> = {
-  // JRSI business views
-  'accident-monitoring': ['Accident Overview', 'Time Analysis'],
-  'risk-mapping': ['TRL Risk'],
-  'vehicle-intelligence': ['Vehicle'],
-  'santunan-claims': ['Financial'],
-  'cause-analysis': ['Cause Analysis'],
-  'data-quality': ['Data Quality'],
-  // Legacy views
-  revenue: ['Revenue', 'Margin'],
-  operations: ['Operational', 'Performance'],
-  'customer-experience': ['Operational', 'Performance'],
-  'cost-optimization': ['Cost', 'Fee'],
-  'risk-compliance': ['Cost', 'Operational'],
-  'fleet-assets': ['Operational', 'Performance'],
-};
+import type { MetricDefinition, AISuggestionItem, AISummaryData } from '@/types/metric';
+// Single source of truth — adding a new PKB business view only requires
+// touching pkbRegistry.ts, not every wizard step that filters by domain.
+import { getMetricDomainsForBusinessView } from '@/data/pkbRegistry';
 
 // ── Scoring algorithm (AI-enhanced) ─────────────────────────────────
 
@@ -118,7 +102,7 @@ export const MonitoringScopeStep = ({
   // Domain-relevant needs attention items
   const domainNeedsAttention = useMemo(() => {
     if (!businessView || !aiSummary) return [];
-    const domains = BUSINESS_VIEW_DOMAINS[businessView];
+    const domains = getMetricDomainsForBusinessView(businessView);
     return (aiSummary.needsAttention || []).filter((n) => {
       const metric = allSystemMetrics.find((m) => m.id === n.metricId);
       return metric?.domain && domains.includes(metric.domain);
@@ -128,15 +112,15 @@ export const MonitoringScopeStep = ({
   // Domain-relevant AI suggestions
   const domainAiSuggestions = useMemo(() => {
     if (!businessView) return [];
-    const domains = BUSINESS_VIEW_DOMAINS[businessView];
-    return aiSuggestions.filter((s) => domains.includes(s.domain));
+    const domains = getMetricDomainsForBusinessView(businessView);
+    return aiSuggestions.filter((s) => s.domain && domains.includes(s.domain));
   }, [businessView, aiSuggestions]);
 
   // Score and sort domain-relevant metrics (AI-enhanced)
   const scoredMetrics = useMemo<ScoredMetric[]>(() => {
     if (!businessView) return [];
 
-    const domains = BUSINESS_VIEW_DOMAINS[businessView];
+    const domains = getMetricDomainsForBusinessView(businessView);
     const domainMetrics = allSystemMetrics.filter(
       (m) => m.domain && domains.includes(m.domain),
     );

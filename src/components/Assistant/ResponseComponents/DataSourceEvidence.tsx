@@ -6,6 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { PKB_DATA_SOURCES, type PkbTableCategory } from '@/data/pkbRegistry';
 
 interface DataSourceEvidenceProps {
   content: string;
@@ -19,74 +20,48 @@ interface DataSource {
   category: 'fact' | 'dimension' | 'metadata' | 'agent';
 }
 
-// Mapping tabel database ke nama yang user-friendly (JRSI)
-const TABLE_MAPPINGS: Record<string, Omit<DataSource, 'table'>> = {
-  // Fact Tables
-  'jrsi irsms example': {
-    displayName: 'IRSMS Kecelakaan',
-    description: 'Data kecelakaan lalu lintas IRSMS — 317 records, Kalimantan Tengah',
-    category: 'fact',
-  },
-  'kecelakaan': {
-    displayName: 'IRSMS Kecelakaan',
-    description: 'Data kecelakaan lalu lintas IRSMS',
-    category: 'fact',
-  },
+// Map PKB registry category → DataSourceEvidence display category.
+// Knowledge / governance / reference are all visually grouped as "metadata"
+// chips in this component (the existing UI only renders 4 categories).
+function mapCategory(c: PkbTableCategory): DataSource['category'] {
+  if (c === 'fact') return 'fact';
+  if (c === 'dimension') return 'dimension';
+  return 'metadata'; // reference / governance / knowledge
+}
 
-  // Metadata Tables
-  'metric_definitions': {
-    displayName: 'Metric Definitions',
-    description: '31 metrik JRSI — accident overview, financial, vehicle, TRL, 4M, data quality',
-    category: 'metadata',
-  },
-  'workspaces': {
-    displayName: 'Workspaces',
-    description: 'Workspace configuration — JRSI, KPR Banking',
-    category: 'metadata',
-  },
+// Build TABLE_MAPPINGS from the single PKB registry — DataSourceEvidence,
+// SpecialistsContext, and the assistant edge function all reference the same
+// canonical list of tables, so adding a new table only requires updating
+// PKB_DATA_SOURCES.
+const TABLE_MAPPINGS: Record<string, Omit<DataSource, 'table'>> =
+  Object.fromEntries(
+    PKB_DATA_SOURCES.map((d) => [
+      d.table,
+      {
+        displayName: d.displayName,
+        description: d.description,
+        category: mapCategory(d.category),
+      },
+    ]),
+  );
 
-  // Agent Tables
-  'agents': {
-    displayName: 'Specialists',
-    description: 'AI specialists untuk monitoring kecelakaan',
-    category: 'agent',
-  },
-  'agent_runs': {
-    displayName: 'Agent Runs',
-    description: 'Riwayat eksekusi specialist',
-    category: 'agent',
-  },
-};
-
-// Deteksi tabel yang disebutkan dalam konten
+// Detect tables referenced in the content (explicit table names only — no broad keyword fallback)
 function detectDataSources(content: string): DataSource[] {
   const sources: DataSource[] = [];
   const seenTables = new Set<string>();
 
-  // Cari referensi tabel dalam konten
   for (const [table, info] of Object.entries(TABLE_MAPPINGS)) {
-    // Cek apakah tabel disebutkan secara eksplisit atau implisit
+    // Match the qualified name "schema.table" (escape the dot) or the display name
+    const escapedTable = table.replace(/\./g, '\\.');
     const patterns = [
-      new RegExp(`\\b${table}\\b`, 'i'), // Nama tabel eksplisit
-      new RegExp(`\\b${info.displayName}\\b`, 'i'), // Display name
+      new RegExp(`\\b${escapedTable}\\b`, 'i'),
+      new RegExp(`\\b${info.displayName}\\b`, 'i'),
     ];
 
-    // Tambahan pattern untuk deteksi kontekstual (JRSI)
-    const contextPatterns: Record<string, RegExp[]> = {
-      'jrsi irsms example': [/kecelakaan|laka|korban|meninggal|luka|fatalitas|severity|tabrak|kendaraan|sepeda motor|kabupaten|kecamatan|provinsi|palangka|kalteng|santunan|klaim|cluster|blackspot|trl|4m|man|machine|medium|method|cause/i],
-      'kecelakaan': [/kecelakaan|accident|laka lantas|korban|MD|LL/i],
-      'metric_definitions': [/metric|metrik|definition|formula|dashboard/i],
-      'agents': [/specialist|agent|monitor|analys/i],
-    };
-
     const hasMatch = patterns.some((pattern) => pattern.test(content));
-    const hasContext = contextPatterns[table]?.some((pattern) => pattern.test(content));
 
-    if ((hasMatch || hasContext) && !seenTables.has(table)) {
-      sources.push({
-        table,
-        ...info,
-      });
+    if (hasMatch && !seenTables.has(table)) {
+      sources.push({ table, ...info });
       seenTables.add(table);
     }
   }

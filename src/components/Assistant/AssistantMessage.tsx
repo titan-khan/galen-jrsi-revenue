@@ -223,7 +223,7 @@ export function AssistantMessage({
       summary: null,
       mentionedMetrics: mentioned,
       allMetrics: metrics,
-    }, { timeoutMs: 3000 })
+    }, { timeoutMs: 8000 })
       .then((aiQuestions) => {
         if (cancelled) return;
         if (aiQuestions && aiQuestions.length > 0) {
