@@ -41,6 +41,14 @@ function trend52(start: number, end: number, opts: { noise?: number; season?: nu
 
 const PLACEHOLDER_INSIGHT = { text: "Menunggu data transaksi pembayaran masuk untuk diaktifkan.", boldParts: [] };
 const fmtIDR = (n: number) => "Rp " + n.toLocaleString("id-ID");
+/** Format IDR dengan satuan terbaca — konsisten "Rp X,XX miliar" untuk metric card.
+ *  fmtIDRb(164_243_795_945) -> "Rp 164,24 miliar". Backing actual number tetap. */
+const fmtIDRb = (n: number) => {
+  if (Math.abs(n) >= 1_000_000_000_000) return "Rp " + (n / 1_000_000_000_000).toFixed(2).replace(".", ",") + " triliun";
+  if (Math.abs(n) >= 1_000_000_000) return "Rp " + (n / 1_000_000_000).toFixed(2).replace(".", ",") + " miliar";
+  if (Math.abs(n) >= 1_000_000) return "Rp " + (n / 1_000_000).toFixed(1).replace(".", ",") + " juta";
+  return "Rp " + n.toLocaleString("id-ID");
+};
 const fmtCount = (n: number) => n.toLocaleString("id-ID");
 const fmtPct = (n: number) => `${n}%`;
 
@@ -217,11 +225,11 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       filterContext: "Palangka Raya · semua kendaraan",
       subtitle: "Total maksimal jika semua kendaraan bayar penuh (estimasi)",
       comparisonLabel: "Berdasarkan tarif tengah per tipe kendaraan",
-      currentValue: fmtIDR(TOTAL_POTENSI_PKB),
+      currentValue: fmtIDRb(TOTAL_POTENSI_PKB),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_TOTAL_POTENSI,
-      insight: { text: "Total potensi Rp 164,24 triliun — angka teoretis. Yang realistis tertagih dalam pilot ini sekitar Rp 23,54 miliar (skenario realistis).", boldParts: ["Rp 164,24 triliun", "Rp 23,54 miliar"] },
+      insight: { text: "Total potensi Rp 164,24 miliar — angka teoretis. Yang realistis tertagih dalam pilot ini sekitar Rp 23,54 miliar (skenario realistis).", boldParts: ["Rp 164,24 miliar", "Rp 23,54 miliar"] },
     },
   }),
   "M-REV-002": defaults({
@@ -235,7 +243,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_AVG_PKB,
-      insight: { text: "Rp 383,768 per kendaraan — didorong dominasi sepeda motor (82.25%, PKB rendah).", boldParts: ["Rp 383,768", "82.25%"] },
+      insight: { text: "Rp 383.768 per kendaraan — didorong dominasi sepeda motor (82,25%, tarif PKB rendah).", boldParts: ["Rp 383.768", "82,25%"] },
     },
   }),
   "M-REV-003": defaults({
@@ -246,8 +254,8 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
     displayData: {
       filterContext: "Skenario peluang sukses minimum per kelompok",
       subtitle: "Target pendapatan dengan asumsi paling aman — skenario minimum",
-      comparisonLabel: "vs total potensi Rp 164,24 triliun",
-      currentValue: fmtIDR(REV_KONSERVATIF),
+      comparisonLabel: "vs total potensi Rp 164,24 miliar",
+      currentValue: fmtIDRb(REV_KONSERVATIF),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_REV_KONS,
@@ -262,9 +270,9 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
       filterContext: "Skenario peluang sukses maksimum per kelompok",
       subtitle: "Skenario terbaik — hanya untuk eksplorasi, jangan dipakai komitmen",
       comparisonLabel: "vs skenario realistis Rp 23,54 miliar",
-      currentValue: fmtIDR(REV_OPTIMIS),
+      currentValue: fmtIDRb(REV_OPTIMIS),
       changePercent: Math.round(((REV_OPTIMIS - REV_KONSERVATIF) / REV_KONSERVATIF) * 100),
-      changeAbsolute: fmtIDR(REV_OPTIMIS - REV_KONSERVATIF),
+      changeAbsolute: fmtIDRb(REV_OPTIMIS - REV_KONSERVATIF),
       status: "healthy",
       sparklineData: SPARK_REV_OPT,
       insight: { text: "Rp 35,15 miliar skenario terbaik. Jangan dipakai sebagai komitmen ke stakeholder — risiko over-promise tinggi. Pakai skenario realistis Rp 23,54 miliar untuk target.", boldParts: ["Rp 35,15 miliar", "Rp 23,54 miliar"] },
@@ -306,24 +314,24 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
 
   // ─── Treatment (3) ───────────────────────────────────────────────────────
   "M-TREAT-001": defaults({
-    description: "Persentase kendaraan yang punya nomor HP valid sehingga bisa dikampanyekan via WhatsApp/SMS. Ini perkiraan jangkauan — tingkat pengiriman aktual WhatsApp Business biasanya 70-80% dari yang punya HP.",
+    description: "Persentase kendaraan yang punya nomor handphone valid sehingga bisa dikampanyekan via WhatsApp/SMS. Ini perkiraan jangkauan — tingkat pengiriman aktual WhatsApp Business biasanya 70-80% dari yang punya nomor handphone.",
     metricType: "result",
     isFollowing: true,
     direction: "up_is_good",
     displayData: {
       filterContext: "Palangka Raya · semua kendaraan",
-      subtitle: "Persentase kendaraan yang punya nomor HP valid",
+      subtitle: "Persentase kendaraan yang punya nomor handphone valid",
       comparisonLabel: "Target ideal: ≥80%",
       currentValue: fmtPct(PCT_PUNYA_HP),
       changePercent: 0, changeAbsolute: "0",
       status: "warning",
       sparklineData: SPARK_PCT_HP,
-      insight: { text: "73,46% kendaraan punya HP — sisanya 26,54% (113.500 kendaraan) tidak bisa dijangkau lewat digital, butuh surat atau kunjungan tim SAMSAT/RT-RW.", boldParts: ["73,46%", "26,54%", "113.500 kendaraan"] },
+      insight: { text: "73,46% kendaraan punya nomor handphone — sisanya 26,54% (113.500 kendaraan) tidak bisa dijangkau lewat digital, butuh surat atau kunjungan tim SAMSAT/RT-RW.", boldParts: ["73,46%", "26,54%", "113.500 kendaraan"] },
     },
   }),
   // M-TREAT-002 deprecated 2026-05-05: kanal_utama_actual column doesn't exist + concept vague
   "M-TREAT-003": defaults({
-    description: "Jumlah kendaraan paling siap dikampanyekan duluan: dari kelompok Baru Lewat Tempo atau Mulai Mengabaikan, punya nomor HP, dan PKB-nya di atas rata-rata. Imbal hasil paling cepat — denda masih kecil, bisa lewat WhatsApp.",
+    description: "Jumlah kendaraan paling siap dikampanyekan duluan: dari kelompok Baru Lewat Tempo atau Mulai Mengabaikan, punya nomor handphone, dan PKB-nya di atas rata-rata. Imbal hasil paling cepat — denda masih kecil, bisa lewat WhatsApp.",
     metricType: "actionable",
     isFollowing: true,
     direction: "up_is_good",

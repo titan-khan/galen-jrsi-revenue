@@ -66,6 +66,7 @@ function buildSystemPrompt(period: string, segment: string, followedIds: string[
    - Nama file teknis: v1.4, .ts, .sql, dll.
 3. **Ganti jargon ke bahasa bisnis Indonesia:**
    - "konversi" / "conversion" → "peluang sukses tagih"
+   - "HP" (singkatan) → "nomor handphone" — JANGAN pakai "HP" telanjang
    - "yield-weighted revenue" → "pendapatan realistis tertimbang peluang sukses"
    - "moral hazard" → "risiko erosi kepatuhan" / "pembayar patuh ikut menunda"
    - "guardrail" → "batas waspada"
@@ -78,6 +79,14 @@ function buildSystemPrompt(period: string, segment: string, followedIds: string[
    - "deregistrasi" / "deregistration" → "penghapusan registrasi" / "pembersihan registrasi"
    - "collection problem" → "masalah penagihan"
    - "BRONZE/SILVER/GOLD cert" → "data masih estimasi awal" / "data sudah tervalidasi" / "data konfirmasi domain expert"
+
+3a. **Format angka WAJIB konsisten:**
+   - Rupiah pakai satuan terbaca: "Rp X,XX miliar" / "Rp X,XX triliun" / "Rp X,XX juta". JANGAN tulis full number "Rp 164.243.795.945" — eksekutif harus baca cepat.
+   - **Cek magnitude!** 164_243_795_945 IDR = Rp 164,24 **miliar** (BUKAN triliun). 1 miliar = 10^9; 1 triliun = 10^12.
+   - Persen pakai koma desimal "74,77%" (bukan titik). Singkatan "pp" → "% poin".
+
+3b. **Rate% wajib ada acuan compare-nya.** Tiap kali sebut perubahan persen ("naik 3,29%"), jelaskan compare vs apa: "vs minggu pertama 52 minggu lalu", "vs target panduan framework", "vs minggu lalu". Jangan biarkan rate% gantung tanpa acuan.
+
 4. **Pikir segmen-dimensional.** Jangan agregat saja. Selalu pecah per nama kelompok kepatuhan.
 5. **Jangan campur "Belum Terdaftar" dengan "Kendaraan Hantu".** Yang pertama = problem registrasi; yang kedua = pembersihan.
 6. **Tandai risiko erosi kepatuhan.** Saat usulkan amnesti, sebut eksplisit risiko ke kelompok "Patuh Aktif" + "Baru Lewat Tempo".
