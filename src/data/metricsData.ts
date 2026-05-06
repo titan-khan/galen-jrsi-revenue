@@ -1,13 +1,25 @@
 import type { MetricDefinition } from "@/types/metric";
 
 // =============================================================================
-// JRSI Metrics Data — 31 metrics across 7 domains
-// Active dataset: JRSI Road Safety (Supabase project: bpctzhvgmeypnpwftltz)
+// Active dataset: PKB pilot (Jasa Raharja Kalteng — Supabase project
+// babpwnkoapgzvnuftyid).
+//
+// JRSI legacy metrics (kecelakaan/santunan/TRL/etc.) are HIDDEN by default
+// for the PKB pilot. Set VITE_ENABLE_JRSI_LEGACY=true in .env.local to
+// re-include them (e.g. for the JRSI use case or for migrating an old
+// specialist). The flag stays read at module-load time — change requires
+// dev-server restart.
 // =============================================================================
 
 import { jrsiMetricsData } from './jrsiMetricsData';
+import { pkbMetricsData } from './pkbMetricsData';
 
-export const metricsData: MetricDefinition[] = jrsiMetricsData;
+const ENABLE_JRSI_LEGACY =
+  String(import.meta.env.VITE_ENABLE_JRSI_LEGACY || '').toLowerCase() === 'true';
+
+export const metricsData: MetricDefinition[] = ENABLE_JRSI_LEGACY
+  ? [...pkbMetricsData, ...jrsiMetricsData]
+  : pkbMetricsData;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────
 

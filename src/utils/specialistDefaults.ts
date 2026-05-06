@@ -5,16 +5,30 @@
 
 import type { BusinessView, MetricConfig, MonitoringRule } from '@/types/specialist';
 import type { MetricDefinition } from '@/types/metric';
+import { PKB_BUSINESS_VIEW_TO_DOMAIN } from '@/data/pkbRegistry';
 
 // ─── Business View → Domain Mapping ──────────────────────────────────────
+//
+// Primary source: PKB pilot mapping. Legacy JRSI / generic mappings are merged
+// in so old code that still references those views keeps resolving to a domain.
 
 export const BUSINESS_VIEW_TO_DOMAIN: Record<BusinessView, string> = {
+  // PKB pilot (primary)
+  ...PKB_BUSINESS_VIEW_TO_DOMAIN,
+  // Legacy generic
   revenue: 'commercial',
   operations: 'supply-chain',
   'customer-experience': 'customer',
   'cost-optimization': 'finance',
   'risk-compliance': 'supply-chain',
   'fleet-assets': 'supply-chain',
+  // Legacy JRSI views — fall back to compliance for backward compat
+  'accident-monitoring': 'compliance',
+  'risk-mapping': 'compliance',
+  'vehicle-intelligence': 'compliance',
+  'santunan-claims': 'revenue-recovery',
+  'cause-analysis': 'compliance',
+  'data-quality': 'governance',
 };
 
 // ─── Metric Matching ─────────────────────────────────────────────────────

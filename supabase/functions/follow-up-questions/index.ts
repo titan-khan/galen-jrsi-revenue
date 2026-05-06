@@ -1,14 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 /**
- * follow-up-questions Edge Function
+ * follow-up-questions Edge Function — PKB pilot (Jasa Raharja Kalteng)
  *
- * AI-powered follow-up question generation agent skill.
- * Receives conversation context + metric data from the frontend,
- * calls Claude Haiku for fast, contextual question generation.
+ * Generates 2–3 contextual follow-up questions in bahasa Indonesia after the
+ * Galen Assistant replies. Calls OpenRouter (consistent with the assistant
+ * and metrics-ai functions) — no separate ANTHROPIC_API_KEY required.
  *
- * Company-agnostic — all context (metric names, domains, values)
- * comes dynamically from the request payload.
+ * Returns null/empty on any error so the frontend falls back to the
+ * deterministic generator in followUpGenerator.ts.
  */
 
 const CORS_HEADERS = {
@@ -17,8 +17,6 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, apikey, x-client-info",
 };
-
-// ── Types ───────────────────────────────────────────────────────────────────
 
 interface MentionedMetric {
   id: string;
@@ -48,82 +46,69 @@ interface FollowUpQuestion {
   category: string;
 }
 
-// ── System Prompt (static, cacheable) ───────────────────────────────────────
+const SYSTEM_PROMPT = `Anda adalah generator pertanyaan lanjutan untuk Galen Assistant — pilot kepatuhan PKB
+(Pajak Kendaraan Bermotor) Jasa Raharja Kalimantan Tengah. Audiens: Kepala Cabang
+dan pimpinan SADAR (C-level). Bahasa: Indonesia.
 
-const SYSTEM_PROMPT = `You are a follow-up question generator for a business metrics intelligence platform.
+Diberikan pertanyaan user, jawaban assistant, dan konteks metrik, hasilkan 2-3
+pertanyaan lanjutan yang membantu eksekutif menggali lebih dalam atau mengambil
+tindakan.
 
-Given a user question, the assistant's response, metric data, and available data domains, generate 2-3 follow-up questions.
+ATURAN:
+1. Bahasa Indonesia natural, profesional, C-level. JANGAN bahasa Inggris.
+2. Setiap pertanyaan harus ANSWERABLE dari data warehouse:
+   - gold.registry_enriched (segmen kepatuhan, kabupaten, jenis kendaraan, tunggakan)
+   - gold.transaksi_2025 (realisasi PKB & SWDKLLJ)
+   - ref.segmen / ref.treatment_lookup / ref.revenue_scenario / ref.program_sadar / ref.raci_matrix
+   - meta.metric_certification (definisi & sertifikasi metrik)
+3. Pakai NAMA SEGMEN NATURAL: "Patuh Aktif", "Baru Lewat Jatuh Tempo",
+   "Mulai Mengabaikan", "Tidak Patuh Pasif", "Tidak Patuh Kronis", "Belum Terdaftar",
+   "Kendaraan Hantu". DILARANG kode H1/K1/M2/S2.
+4. Glossary: pakai "peluang sukses tagih" bukan "konversi"; "nomor handphone" bukan "HP";
+   "saluran" bukan "channel"; "risiko erosi kepatuhan" bukan "moral hazard".
+5. Format Rupiah: "Rp X,XX miliar/triliun/juta" jika menyebut angka.
+6. Maksimum 120 karakter per pertanyaan.
+7. Jangan ulangi pertanyaan user. Jangan ulangi yang sudah dijawab assistant.
+8. Setiap pertanyaan eksplorasi sudut yang BERBEDA — drill-down, action, korelasi,
+   tren, atau skenario revenue.
+9. Bila assistant menyebut amnesti, salah satu pertanyaan WAJIB tentang risiko erosi
+   kepatuhan ke segmen Patuh Aktif / Baru Lewat Jatuh Tempo.
+10. Bila assistant menyebut treatment / kanal, salah satu pertanyaan WAJIB tentang
+    cakupan nomor handphone atau pilihan saluran offline (surat / RT-RW / SAMSAT).
 
-RULES:
-1. Questions MUST reference REAL metric names from the provided context. Never invent metric names.
-2. Questions must be ANSWERABLE using the data domains provided. Do not ask about data that isn't available.
-3. Never repeat or rephrase the user's original question.
-4. Never repeat information already covered in the assistant's response.
-5. Each question explores a DIFFERENT angle: deeper analysis, actionable next steps, cross-metric correlation, dimensional breakdown, or historical trends.
-6. Keep questions conversational and concise (under 120 characters).
-7. Use specific values and percentages from the metric data when relevant.
-8. Do not reference any company name, industry, or business type unless explicitly mentioned in the context.
+KATEGORI (pilih satu per pertanyaan):
+- next-step: gali lebih dalam topik utama
+- action: aksi / tindakan yang harus dilakukan
+- correlation: keterkaitan lintas-segmen, lintas-kabupaten, atau lintas-metrik
+- drill-down: breakdown per dimensi (segmen / kabupaten / jenis kendaraan / waktu)
+- trend: pola historis atau trajektori
 
-CATEGORIES (assign exactly one per question):
-- next-step: Deeper analysis of the primary topic
-- action: What to do about a problem
-- correlation: Cross-metric or cross-domain relationship
-- drill-down: Breakdown by dimension, segment, or time period
-- trend: Historical pattern or trajectory
-
-OUTPUT: Return ONLY valid JSON (no markdown, no code fences):
+OUTPUT: HANYA JSON valid (tanpa markdown, tanpa code fence):
 {"questions":[{"id":"ai-1","text":"...","category":"..."},{"id":"ai-2","text":"...","category":"..."}]}`;
 
-// ── User Message Builder (dynamic, per-request) ─────────────────────────────
-
 function buildUserMessage(body: RequestBody): string {
-  const {
-    userQuestion,
-    assistantResponse,
-    summary,
-    mentionedMetrics,
-    allMetricNames,
-    dataDomains,
-  } = body;
+  const { userQuestion, assistantResponse, summary } = body;
 
-  // Truncate response to keep input tokens low
-  const truncatedResponse =
-    assistantResponse.length > 800
-      ? assistantResponse.slice(0, 800) + "..."
+  const truncated =
+    assistantResponse.length > 1000
+      ? assistantResponse.slice(0, 1000) + "..."
       : assistantResponse;
 
-  const metricsSection =
-    mentionedMetrics.length > 0
-      ? mentionedMetrics
-          .map(
-            (m) =>
-              `- ${m.name} (${m.domain}): ${m.currentValue}, ${m.changePercent > 0 ? "+" : ""}${m.changePercent}% change, status: ${m.status}`
-          )
-          .join("\n")
-      : "No specific metrics mentioned.";
+  const takeaway = summary?.keyTakeaway || "(belum ada ringkasan eksplisit)";
+  const nextSteps = summary?.nextSteps || "(belum ada next steps eksplisit)";
 
-  const takeaway = summary?.keyTakeaway || "N/A";
+  return `Pertanyaan user: "${userQuestion}"
 
-  return `User asked: "${userQuestion}"
-
-Assistant response (summary):
-${truncatedResponse}
+Jawaban assistant (ringkas):
+${truncated}
 
 Key takeaway: ${takeaway}
+Next steps: ${nextSteps}
 
-Mentioned metrics:
-${metricsSection}
-
-All available metrics: [${allMetricNames.join(", ")}]
-Available data domains: [${dataDomains.join(", ")}]
-
-Generate 2-3 follow-up questions.`;
+Hasilkan 2-3 pertanyaan lanjutan dalam bahasa Indonesia.`;
 }
 
-// ── Main Handler ────────────────────────────────────────────────────────────
-
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -136,14 +121,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")
+      || Deno.env.get("OPENROUTER_KEY")
+      || Deno.env.get("OPEN_ROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     const body: RequestBody = await req.json();
 
-    // Validate required fields
     if (!body.userQuestion || !body.assistantResponse) {
       return new Response(
         JSON.stringify({
@@ -158,43 +144,42 @@ Deno.serve(async (req: Request) => {
 
     const userMessage = buildUserMessage(body);
 
-    // Call Claude Haiku (non-streaming for structured JSON)
-    const claudeResponse = await fetch(
-      "https://api.anthropic.com/v1/messages",
+    const OPENROUTER_MODEL = Deno.env.get("OPENROUTER_FOLLOWUP_MODEL")
+      || "anthropic/claude-haiku-4.5";
+    const OPENROUTER_SITE = Deno.env.get("OPENROUTER_SITE_URL") || "https://galen.jasaraharja.id";
+    const OPENROUTER_TITLE = Deno.env.get("OPENROUTER_APP_TITLE") || "Galen PKB Pilot Follow-up";
+
+    const llmResponse = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": OPENROUTER_SITE,
+          "X-Title": OPENROUTER_TITLE,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-3-5-haiku-20241022",
-          max_tokens: 300,
-          system: [
-            {
-              type: "text",
-              text: SYSTEM_PROMPT,
-              cache_control: { type: "ephemeral" },
-            },
+          model: OPENROUTER_MODEL,
+          max_tokens: 400,
+          temperature: 0.4,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMessage },
           ],
-          messages: [{ role: "user", content: userMessage }],
-          stream: false,
         }),
       }
     );
 
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text();
-      console.error(
-        "Claude API error:",
-        claudeResponse.status,
-        errorText
-      );
+    if (!llmResponse.ok) {
+      const errorText = await llmResponse.text();
+      console.error("OpenRouter API error:", llmResponse.status, errorText);
       return new Response(
         JSON.stringify({
           error: "AI service unavailable",
-          details: `Claude API returned ${claudeResponse.status}`,
+          details: `OpenRouter returned ${llmResponse.status}`,
+          upstream: errorText.slice(0, 300),
         }),
         {
           status: 502,
@@ -203,21 +188,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const claudeResult = await claudeResponse.json();
-
-    // Extract text content from Claude's response
-    const textContent = claudeResult.content?.find(
-      (block: { type: string }) => block.type === "text"
-    );
-
-    if (!textContent?.text) {
-      throw new Error("No text content in Claude response");
+    const llmResult = await llmResponse.json();
+    const messageContent: string | undefined = llmResult.choices?.[0]?.message?.content;
+    if (!messageContent) {
+      throw new Error("No message content in OpenRouter response");
     }
 
-    // Parse the JSON from Claude's response
-    let rawText = textContent.text.trim();
-
-    // Strip markdown code fences if present (despite instructions)
+    let rawText = messageContent.trim();
     if (rawText.startsWith("```")) {
       rawText = rawText
         .replace(/^```(?:json)?\n?/, "")
@@ -226,7 +203,6 @@ Deno.serve(async (req: Request) => {
 
     const aiResult = JSON.parse(rawText);
 
-    // Validate response structure
     if (
       !aiResult.questions ||
       !Array.isArray(aiResult.questions) ||
@@ -237,7 +213,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Validate and normalize each question
     const questions: FollowUpQuestion[] = aiResult.questions
       .slice(0, 3)
       .map((q: FollowUpQuestion, i: number) => ({

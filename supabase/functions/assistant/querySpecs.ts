@@ -1,10 +1,9 @@
 // =============================================================================
 // QUERY SPECS — Per-intent-category database query definitions
-// Maps each IntentCategory to declarative QueryContextSpec arrays
+// PKB pilot domain: Pajak Kendaraan Bermotor compliance for Jasa Raharja Kalteng
 //
 // Fact tables use adaptiveConfig instead of static limits — the query resolver
 // runs a lightweight COUNT(*) pre-query and sizes the fetch dynamically.
-// Dimension/reference tables keep fixed limits since their size is stable.
 // =============================================================================
 
 interface QueryFilter {
@@ -13,25 +12,22 @@ interface QueryFilter {
   value: string | number | boolean | string[];
 }
 
-// Adaptive config tells the query resolver how to size fetches dynamically
 export interface AdaptiveConfig {
-  maxLimit: number;    // absolute ceiling — never fetch more than this
-  displayCap: number;  // how many rows buildDbContextSection shows to Claude
+  maxLimit: number;
+  displayCap: number;
 }
 
 export interface QueryContextSpec {
+  schema?: string;          // defaults to 'public' when omitted
   table: string;
   select: string[];
   filters?: QueryFilter[];
   orderBy?: { field: string; ascending: boolean };
-  limit?: number;           // fixed limit (for dim/reference tables)
-  adaptiveConfig?: AdaptiveConfig;  // dynamic limit (for fact tables)
+  limit?: number;
+  adaptiveConfig?: AdaptiveConfig;
 }
 
-// ---------------------------------------------------------------------------
-// Rolling 13-month date floor — scope filter for time-series fact tables.
-// Computed once per edge function invocation (short-lived, so always fresh).
-// ---------------------------------------------------------------------------
+// Rolling 13-month date floor for time-series filters (paid_on text "YYYY-MM-DD")
 const ROLLING_13M_FLOOR = (() => {
   const d = new Date();
   d.setMonth(d.getMonth() - 13);
@@ -40,90 +36,145 @@ const ROLLING_13M_FLOOR = (() => {
 
 export { ROLLING_13M_FLOOR };
 
-// JRSI workspace ID for filtering
-const JRSI_WORKSPACE_ID = '32ef0116-97ea-4f39-ad9b-9a978862b9a2';
+// ---------------------------------------------------------------------------
+// REUSABLE SPECS
+// ---------------------------------------------------------------------------
 
-// Common JRSI kecelakaan query spec
-const JRSI_KECELAKAAN_SPEC: QueryContextSpec = {
-  table: 'jrsi irsms example',
+const REGISTRY_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'registry_enriched',
   select: [
-    'idKecelakaan', 'tanggal', 'waktu', 'hari', 'isWeekend', 'monthYear', 'hourBucket',
-    'provinsi', 'kabupatenKota', 'kecamatan',
-    'severityMax', 'jumlahMd', 'jumlahLl', 'totalKorban', 'bobotLaka',
-    'kasusLaka', 'sifatKecelakaan', 'lakajol',
-    'jumlahKendaraan', 'kendaraanSepedaMotor', 'kendaraanMobilPenumpang', 'kendaraanTruk',
-    'extractedBrand', 'extractedModel', 'extractedBrandModel',
-    'extractedCauses', 'extracted4mCategories',
-    'surfaceCondName', 'weatherName', 'roadLight', 'roadGeometry',
-    'statusJalan', 'fungsiJalan', 'gpsLuN', 'gpsLsN',
-    'jumlahKlaimA', 'jumlahKlaimB',
-    'deskripsiKecelakaan',
+    'vehicle_id', 'kabupaten_id', 'kode_jenken',
+    'segmen_kepatuhan', 'segmen_nama',
+    'durasi_tunggakan_days', 'has_phone', 'has_payment_history',
+    'treatment_kanal_utama', 'treatment_kebijakan_amnesti',
+    'treatment_aksi_utama', 'treatment_perkiraan_konversi',
+    'est_pkb_per_kendaraan', 'usia_kendaraan',
+    'merek_kendaraan', 'kecamatan', 'kelurahan',
+    'source_period',
   ],
-  orderBy: { field: 'tanggal', ascending: false },
-  adaptiveConfig: { maxLimit: 500, displayCap: 100 },
+  adaptiveConfig: { maxLimit: 5000, displayCap: 30 },
 };
 
+const TRANSAKSI_2025_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'transaksi_2025',
+  select: [
+    'paid_on', 'kabupaten_id', 'upt_id', 'kode_jenken', 'id_layanan',
+    'pokok_pkb', 'tunggakan_pokok_pkb',
+    'pokok_swdkllj', 'tunggakan_pokok_swdkllj',
+    'denda_swdkllj', 'tunggakan_denda_swdkllj',
+  ],
+  filters: [{ field: 'paid_on', operator: 'gte', value: ROLLING_13M_FLOOR }],
+  adaptiveConfig: { maxLimit: 5000, displayCap: 30 },
+};
+
+const DIM_KABUPATEN_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'dim_kabupaten',
+  select: ['kabupaten_id', 'nama_kabupaten', 'tipologi_wilayah'],
+  limit: 20,
+};
+
+const DIM_JENKEN_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'dim_jenken',
+  select: ['kode_jenken', 'jenis_kendaraan', 'is_motor', 'est_pkb_per_kendaraan'],
+  limit: 20,
+};
+
+const DIM_UPT_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'dim_upt',
+  select: ['upt_id', 'upt_nama', 'kabupaten_id'],
+  limit: 20,
+};
+
+const DIM_LAYANAN_SPEC: QueryContextSpec = {
+  schema: 'gold',
+  table: 'dim_layanan',
+  select: ['id_layanan', 'nama_layanan', 'kategori'],
+  limit: 30,
+};
+
+const SEGMEN_SPEC: QueryContextSpec = {
+  schema: 'ref',
+  table: 'segmen',
+  select: ['kode', 'nama', 'warna', 'kelas_pyramid', 'durasi_tunggakan', 'profil_perilaku', 'posisi_pyramid_djp'],
+  limit: 10,
+};
+
+const TREATMENT_LOOKUP_SPEC: QueryContextSpec = {
+  schema: 'ref',
+  table: 'treatment_lookup',
+  select: ['segmen_kode', 'tujuan_strategis', 'kanal_utama', 'pesan_personalisasi', 'kebijakan_amnesti', 'aksi_utama', 'perkiraan_konversi'],
+  limit: 10,
+};
+
+const REVENUE_SCENARIO_SPEC: QueryContextSpec = {
+  schema: 'ref',
+  table: 'revenue_scenario',
+  select: ['scenario_id', 'segmen_kode', 'konversi_pct', 'est_pendapatan_idr', 'scenario_label'],
+  limit: 30,
+};
+
+const PROGRAM_SADAR_SPEC: QueryContextSpec = {
+  schema: 'ref',
+  table: 'program_sadar',
+  select: ['program_id', 'nama', 'deskripsi', 'segmen_sasaran', 'pemangku_kepentingan', 'tipologi_wilayah'],
+  limit: 15,
+};
+
+const RACI_SPEC: QueryContextSpec = {
+  schema: 'ref',
+  table: 'raci_matrix',
+  select: ['raci_id', 'segmen_kode', 'aksi_kunci', 'jasa_raharja', 'bapenda', 'samsat', 'polri', 'kelurahan', 'vendor_ti'],
+  limit: 60,
+};
+
+const METRIC_DICTIONARY_SPEC: QueryContextSpec = {
+  schema: 'meta',
+  table: 'metric_certification',
+  select: [
+    'metric_id', 'metric_name', 'metric_slug', 'business_domain', 'metric_type',
+    'formula', 'unit', 'granularity', 'source_tables',
+    'governance_source', 'valid_range_min', 'valid_range_max',
+    'certification_level', 'confidence_score',
+  ],
+  filters: [{ field: 'deprecated', operator: 'eq', value: false }],
+  limit: 80,
+};
+
+const TABLE_DICTIONARY_SPEC: QueryContextSpec = {
+  schema: 'meta',
+  table: 'table_metadata',
+  select: ['table_id', 'schema_name', 'table_name', 'description', 'business_domain', 'grain', 'refresh_cadence', 'source_system'],
+  limit: 30,
+};
+
+// ---------------------------------------------------------------------------
+// INTENT → SPECS MAP
+// ---------------------------------------------------------------------------
+
 export const QUERY_SPECS_BY_INTENT: Record<string, QueryContextSpec[]> = {
-  // JRSI: accident overview, severity, trends
-  revenue: [JRSI_KECELAKAAN_SPEC],
-  nps: [JRSI_KECELAKAAN_SPEC],
-  operations: [JRSI_KECELAKAAN_SPEC],
-  fleet: [JRSI_KECELAKAAN_SPEC],
-  funnel: [JRSI_KECELAKAAN_SPEC],
+  // Compliance pyramid, segments, demographics
+  compliance: [REGISTRY_SPEC, SEGMEN_SPEC, DIM_KABUPATEN_SPEC],
 
-  agents: [
-    {
-      table: 'agents',
-      select: [
-        'id', 'name', 'description', 'status', 'category',
-        'trust_score', 'total_runs', 'last_run_at',
-      ],
-      filters: [{ field: 'workspace_id', operator: 'eq', value: JRSI_WORKSPACE_ID }],
-    },
-    {
-      table: 'agent_recommendations',
-      select: [
-        'id', 'agent_id', 'title', 'description', 'priority',
-        'status', 'potential_impact', 'created_at',
-      ],
-      orderBy: { field: 'created_at', ascending: false },
-      limit: 50,
-    },
-    {
-      table: 'agent_runs',
-      select: [
-        'id', 'agent_id', 'status', 'trigger',
-        'started_at', 'completed_at', 'findings',
-      ],
-      orderBy: { field: 'started_at', ascending: false },
-      limit: 20,
-    },
-    {
-      table: 'agent_skills',
-      select: ['id', 'name', 'display_name', 'description', 'category', 'is_active'],
-      filters: [{ field: 'is_active', operator: 'eq', value: true }],
-    },
-  ],
+  // PKB / SWDKLLJ realization & arrears
+  revenue: [TRANSAKSI_2025_SPEC, DIM_KABUPATEN_SPEC, DIM_JENKEN_SPEC, REVENUE_SCENARIO_SPEC],
 
-  general: [
-    JRSI_KECELAKAAN_SPEC,
-    {
-      table: 'agents',
-      select: ['id', 'name', 'status', 'trust_score', 'last_run_at'],
-      filters: [{ field: 'workspace_id', operator: 'eq', value: JRSI_WORKSPACE_ID }],
-    },
-    {
-      table: 'metric_definitions',
-      select: ['id', 'metric_id', 'name', 'definition', 'formula', 'domain', 'dashboard', 'computed_value'],
-      filters: [{ field: 'workspace_id', operator: 'eq', value: JRSI_WORKSPACE_ID }],
-    },
-  ],
+  // Treatment recommendations, programs, RACI
+  treatment: [TREATMENT_LOOKUP_SPEC, PROGRAM_SADAR_SPEC, RACI_SPEC, SEGMEN_SPEC, REVENUE_SCENARIO_SPEC],
 
-  metadata: [
-    {
-      table: 'metric_definitions',
-      select: ['id', 'metric_id', 'name', 'definition', 'formula', 'measure', 'domain', 'granularity', 'source_columns', 'dashboard', 'computed_value', 'notes'],
-      filters: [{ field: 'workspace_id', operator: 'eq', value: JRSI_WORKSPACE_ID }],
-    },
-  ],
+  // Geography / kabupaten breakdown
+  geography: [DIM_KABUPATEN_SPEC, DIM_UPT_SPEC, REGISTRY_SPEC],
+
+  // Vehicle types
+  fleet: [DIM_JENKEN_SPEC, REGISTRY_SPEC],
+
+  // Metric definitions, governance, lineage
+  metadata: [METRIC_DICTIONARY_SPEC, TABLE_DICTIONARY_SPEC],
+
+  // General overview — mix of compliance + dictionary + segmen reference
+  general: [REGISTRY_SPEC, DIM_KABUPATEN_SPEC, SEGMEN_SPEC, METRIC_DICTIONARY_SPEC],
 };
