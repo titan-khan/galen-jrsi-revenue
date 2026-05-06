@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Clock, DollarSign, Zap, Timer, Target, TrendingUp, Calculator, ListChecks, ChevronRight } from 'lucide-react';
+import { Clock, DollarSign, Zap, Timer, Target, TrendingUp, Calculator, ListChecks, ChevronRight, AlertTriangle, LineChart, Link2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SpecialistRecommendation, StructuredRecommendationContent } from '@/types/specialist';
 import { cn } from '@/lib/utils';
@@ -120,6 +120,60 @@ export function StructuredContentSection({ content }: { content: StructuredRecom
               <li key={i} className="text-[13px] text-foreground/75 leading-relaxed flex items-start gap-1.5">
                 <span className="text-muted-foreground/40 mt-px select-none">•</span>
                 <span>{tactic}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Risk Factors — what could go wrong (downside) */}
+      {content.riskFactors && content.riskFactors.length > 0 && (
+        <div className="rounded-md border border-amber-200/50 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500/70" />
+            <span className="text-[11px] font-semibold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wider">Risk Factors</span>
+          </div>
+          <ul className="space-y-1">
+            {content.riskFactors.map((risk, i) => (
+              <li key={i} className="text-[13px] text-foreground/80 leading-relaxed flex items-start gap-1.5">
+                <span className="text-amber-500/40 mt-px select-none">•</span>
+                <span>{risk}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Success Metrics — KPI exit criteria */}
+      {content.successMetrics && content.successMetrics.length > 0 && (
+        <div className="rounded-md border border-emerald-200/50 bg-emerald-50/30 dark:bg-emerald-950/10 dark:border-emerald-900/30 p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <LineChart className="h-3.5 w-3.5 text-emerald-500/70" />
+            <span className="text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">Success Metrics</span>
+          </div>
+          <ul className="space-y-1">
+            {content.successMetrics.map((kpi, i) => (
+              <li key={i} className="text-[13px] text-foreground/80 leading-relaxed flex items-start gap-1.5">
+                <span className="text-emerald-500/40 mt-px select-none">•</span>
+                <span>{kpi}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Dependencies — prerequisites/blockers */}
+      {content.dependencies && content.dependencies.length > 0 && (
+        <div className="rounded-md border border-border/50 bg-muted/10 p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Link2 className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">Dependencies</span>
+          </div>
+          <ul className="space-y-1">
+            {content.dependencies.map((dep, i) => (
+              <li key={i} className="text-[13px] text-foreground/75 leading-relaxed flex items-start gap-1.5">
+                <span className="text-muted-foreground/40 mt-px select-none">•</span>
+                <span>{dep}</span>
               </li>
             ))}
           </ul>

@@ -30,7 +30,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useSpecialists } from '@/contexts/SpecialistsContext';
 import { useSpecialistRunData } from '@/hooks/useSpecialistRunData';
-import { updateRecommendationStatus } from '@/services/specialistRunService';
+import {
+  updateRecommendationStatus,
+  approveRecommendation,
+  rejectRecommendation,
+  assignRecommendation,
+} from '@/services/specialistRunService';
+import type { RecommendationAssignee } from '@/types/specialist';
 import { MonitoringRulesEditor } from './MonitoringRulesEditor';
 import { OverviewTab } from './Detail/OverviewTab';
 import { InsightRecommendationTab } from './Detail/InsightRecommendationTab';
@@ -151,12 +157,25 @@ export function SpecialistDetailView() {
   const isPaused = specialist.status === 'paused';
   const pendingActionCount = recommendations.filter(r => r.status === 'proposed').length;
 
-  const handleApprove = async (recId: string) => {
-    await updateRecommendationStatus(recId, 'approved');
+  const handleApprove = async (
+    recId: string,
+    payload: { actor: string; note?: string; assignee?: RecommendationAssignee },
+  ) => {
+    await approveRecommendation(recId, payload.actor, payload.note);
+    if (payload.assignee) {
+      await assignRecommendation(recId, payload.assignee, payload.actor);
+    }
     refetch();
   };
-  const handleReject = async (recId: string) => {
-    await updateRecommendationStatus(recId, 'rejected');
+  const handleReject = async (recId: string, payload: { actor: string; note: string }) => {
+    await rejectRecommendation(recId, payload.actor, payload.note);
+    refetch();
+  };
+  const handleReassign = async (
+    recId: string,
+    payload: { actor: string; assignee: RecommendationAssignee },
+  ) => {
+    await assignRecommendation(recId, payload.assignee, payload.actor);
     refetch();
   };
   const handleExecute = async (recId: string) => {
@@ -420,6 +439,7 @@ export function SpecialistDetailView() {
                   isLoading={isDataLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
+                  onReassign={handleReassign}
                   onExecute={handleExecute}
                   onMeasure={handleMeasure}
                   onDeepDive={handleDeepDive}

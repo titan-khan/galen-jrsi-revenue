@@ -11,9 +11,14 @@ import type {
   InsightSeverity,
   InsightStatus,
   RecommendationStatus,
+  RecommendationAssignee,
+  RecommendationActivityEntry,
+  RecommendationActivityAction,
   BusinessView,
 } from '@/types/specialist';
 import type { AgentRun } from '@/types/agent';
+import { findPKBDemoOverride, synthesizeStructuredContent } from '@/data/pkbRecommendationDemoOverrides';
+import { formatIDR } from '@/utils/currency';
 
 // ─── Safeguard Utilities ────────────────────────────────────────────
 
@@ -310,25 +315,40 @@ export async function getSpecialistRecommendations(
   if (error) throw new Error(`Failed to fetch recommendations: ${error.message}`);
   if (!data) return [];
 
-  return data.map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    specialistId,
-    insightId: (row.insight_id as string) || undefined,
-    title: (row.title as string) || 'Untitled Recommendation',
-    description: (row.description as string) || '',
-    impact: {
-      type: safeEnum<'revenue' | 'cost' | 'risk' | 'efficiency'>(row.impact_type, VALID_IMPACT_TYPE, 'efficiency'),
-      value: safeNum(row.impact_value) || safeNum(row.potential_impact_numeric),
-      currency: (row.impact_currency as string) || 'IDR',
-      confidence: clamp(safeNum(row.impact_confidence, 50), 0, 100),
-    },
-    effort: safeEnum<'low' | 'medium' | 'high'>(row.estimated_effort, VALID_EFFORT, 'medium'),
-    deadline: (row.deadline as string) || undefined,
-    status: (row.status as RecommendationStatus) || 'proposed',
-    rootCauseRank: safeNum(row.root_cause_rank) || undefined,
-    actionScope: safeEnum<'strategic' | 'tactical'>(row.action_scope, VALID_ACTION_SCOPE, 'tactical'),
-    relatedInsightIds: row.insight_id ? [row.insight_id as string] : [],
-    structuredContent: row.structured_content ? (() => {
+  // ── Fetch activity log entries for these recommendations (single round-trip)
+  const recIds = data.map((r) => r.id as string);
+  const activityByRec = new Map<string, RecommendationActivityEntry[]>();
+  if (recIds.length > 0) {
+    const { data: activityRows } = await supabase
+      .from('recommendation_activity_log')
+      .select('*')
+      .in('recommendation_id', recIds)
+      .order('created_at', { ascending: false });
+    if (activityRows) {
+      for (const row of activityRows as Record<string, unknown>[]) {
+        const recId = row.recommendation_id as string;
+        const entry: RecommendationActivityEntry = {
+          id: row.id as string,
+          action: (row.action as RecommendationActivityAction) || 'created',
+          actor: (row.actor as string) || undefined,
+          note: (row.note as string) || undefined,
+          createdAt: (row.created_at as string) || new Date().toISOString(),
+        };
+        const list = activityByRec.get(recId) ?? [];
+        list.push(entry);
+        activityByRec.set(recId, list);
+      }
+    }
+  }
+
+  return data.map((row: Record<string, unknown>) => {
+    const title = (row.title as string) || 'Untitled Recommendation';
+    // Demo override (only used as fallback when DB columns missing or null).
+    // Once governance migrations are applied + AI re-runs populate fields,
+    // DB values win automatically.
+    const demo = findPKBDemoOverride(title);
+
+    const dbStructuredContent = row.structured_content ? (() => {
       const sc = row.structured_content as Record<string, unknown>;
       const calc = sc.calculation as Record<string, unknown> | null;
       return {
@@ -341,31 +361,97 @@ export async function getSpecialistRecommendations(
         } : { lineItems: [], result: '' },
         quarterlyImpact: (sc.quarterly_impact as string) || '',
         tactics: Array.isArray(sc.tactics) ? sc.tactics as string[] : [],
+        riskFactors: Array.isArray(sc.risk_factors) ? sc.risk_factors as string[] : undefined,
+        successMetrics: Array.isArray(sc.success_metrics) ? sc.success_metrics as string[] : undefined,
+        dependencies: Array.isArray(sc.dependencies) ? sc.dependencies as string[] : undefined,
       };
-    })() : undefined,
-    createdAt: (row.created_at as string) || new Date().toISOString(),
-    galenAction: row.galen_action ? (() => {
-      const ga = row.galen_action as Record<string, unknown>;
-      if (ga.type !== 'create_specialist') return undefined;
-      const VALID_BV = ['revenue', 'operations', 'customer-experience', 'cost-optimization', 'risk-compliance', 'fleet-assets'];
-      // LLM sometimes returns domain names instead of business view keys — map them
-      const DOMAIN_TO_BV: Record<string, string> = {
-        commercial: 'revenue',
-        'supply-chain': 'operations',
-        customer: 'customer-experience',
-        finance: 'cost-optimization',
-      };
-      const rawBv = ga.suggested_business_view as string;
-      const resolvedBv = VALID_BV.includes(rawBv) ? rawBv : (DOMAIN_TO_BV[rawBv] || 'operations');
-      return {
-        type: 'create_specialist' as const,
-        suggestedName: (ga.suggested_name as string) || '',
-        suggestedBusinessView: resolvedBv as BusinessView,
-        suggestedMetrics: Array.isArray(ga.suggested_metrics) ? ga.suggested_metrics as string[] : [],
-        suggestedDescription: (ga.suggested_description as string) || '',
-      };
-    })() : undefined,
-  }));
+    })() : undefined;
+
+    const dbAssignee: RecommendationAssignee | undefined = row.assignee
+      ? (() => {
+          const a = row.assignee as Record<string, unknown>;
+          if (typeof a !== 'object' || !a) return undefined;
+          if (!a.name) return undefined;
+          return {
+            name: a.name as string,
+            role: (a.role as string) || '',
+            unit: (a.unit as string) || undefined,
+          } satisfies RecommendationAssignee;
+        })()
+      : undefined;
+
+    return {
+      id: row.id as string,
+      specialistId,
+      insightId: (row.insight_id as string) || undefined,
+      title,
+      description: (row.description as string) || '',
+      impact: {
+        type: safeEnum<'revenue' | 'cost' | 'risk' | 'efficiency'>(
+          row.impact_type ?? demo?.impactType,
+          VALID_IMPACT_TYPE,
+          demo?.impactType || 'efficiency',
+        ),
+        value:
+          safeNum(row.impact_value) ||
+          safeNum(row.potential_impact_numeric) ||
+          (demo?.impactValue ?? 0),
+        currency: (row.impact_currency as string) || demo?.impactCurrency || 'IDR',
+        confidence: clamp(
+          safeNum(row.impact_confidence, demo?.impactConfidence ?? 50),
+          0,
+          100,
+        ),
+      },
+      effort: safeEnum<'low' | 'medium' | 'high'>(row.estimated_effort, VALID_EFFORT, 'medium'),
+      deadline: (row.deadline as string) || demo?.deadline || undefined,
+      status: (row.status as RecommendationStatus) || 'proposed',
+      rootCauseRank: safeNum(row.root_cause_rank) || undefined,
+      actionScope: safeEnum<'strategic' | 'tactical'>(row.action_scope, VALID_ACTION_SCOPE, 'tactical'),
+      relatedInsightIds: row.insight_id ? [row.insight_id as string] : [],
+      // ── Governance fields ──
+      assignee: dbAssignee ?? demo?.assignee,
+      approvalNote: (row.approval_note as string) || undefined,
+      rejectedNote: (row.rejected_note as string) || undefined,
+      approvedBy: (row.approved_by as string) || undefined,
+      rejectedBy: (row.rejected_by as string) || undefined,
+      activityLog: activityByRec.get(row.id as string) ?? [],
+      structuredContent:
+        dbStructuredContent ??
+        demo?.structuredContent ??
+        synthesizeStructuredContent(
+          (row.description as string) || '',
+          (row.potential_impact as string) || '',
+          formatIDR(
+            safeNum(row.impact_value) ||
+              safeNum(row.potential_impact_numeric) ||
+              (demo?.impactValue ?? 0),
+          ),
+        ),
+      createdAt: (row.created_at as string) || new Date().toISOString(),
+      galenAction: row.galen_action ? (() => {
+        const ga = row.galen_action as Record<string, unknown>;
+        if (ga.type !== 'create_specialist') return undefined;
+        const VALID_BV = ['revenue', 'operations', 'customer-experience', 'cost-optimization', 'risk-compliance', 'fleet-assets'];
+        // LLM sometimes returns domain names instead of business view keys — map them
+        const DOMAIN_TO_BV: Record<string, string> = {
+          commercial: 'revenue',
+          'supply-chain': 'operations',
+          customer: 'customer-experience',
+          finance: 'cost-optimization',
+        };
+        const rawBv = ga.suggested_business_view as string;
+        const resolvedBv = VALID_BV.includes(rawBv) ? rawBv : (DOMAIN_TO_BV[rawBv] || 'operations');
+        return {
+          type: 'create_specialist' as const,
+          suggestedName: (ga.suggested_name as string) || '',
+          suggestedBusinessView: resolvedBv as BusinessView,
+          suggestedMetrics: Array.isArray(ga.suggested_metrics) ? ga.suggested_metrics as string[] : [],
+          suggestedDescription: (ga.suggested_description as string) || '',
+        };
+      })() : undefined,
+    };
+  });
 }
 
 // ─── Update Recommendation Status ────────────────────────────────────
@@ -380,6 +466,87 @@ export async function updateRecommendationStatus(
     .eq('id', recommendationId);
 
   if (error) throw new Error(`Failed to update recommendation: ${error.message}`);
+}
+
+// ─── Activity Log helper ─────────────────────────────────────────────
+
+async function appendActivityLog(
+  recommendationId: string,
+  action: RecommendationActivityAction,
+  actor?: string,
+  note?: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase.from('recommendation_activity_log').insert({
+    recommendation_id: recommendationId,
+    action,
+    actor: actor ?? null,
+    note: note ?? null,
+    metadata: metadata ?? null,
+  });
+  if (error) {
+    // Non-fatal — activity log failure shouldn't block the primary state change
+    console.warn(`Failed to append activity log (${action}):`, error.message);
+  }
+}
+
+// ─── Approve Recommendation (status + note + log) ───────────────────
+
+export async function approveRecommendation(
+  recommendationId: string,
+  actor: string,
+  note?: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('agent_recommendations')
+    .update({
+      status: 'approved',
+      approved_by: actor,
+      approval_note: note ?? null,
+    })
+    .eq('id', recommendationId);
+  if (error) throw new Error(`Failed to approve recommendation: ${error.message}`);
+  await appendActivityLog(recommendationId, 'approved', actor, note);
+}
+
+// ─── Reject Recommendation (status + note + log) ────────────────────
+
+export async function rejectRecommendation(
+  recommendationId: string,
+  actor: string,
+  note: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('agent_recommendations')
+    .update({
+      status: 'rejected',
+      rejected_by: actor,
+      rejected_note: note,
+    })
+    .eq('id', recommendationId);
+  if (error) throw new Error(`Failed to reject recommendation: ${error.message}`);
+  await appendActivityLog(recommendationId, 'rejected', actor, note);
+}
+
+// ─── Reassign Recommendation (assignee + log) ───────────────────────
+
+export async function assignRecommendation(
+  recommendationId: string,
+  assignee: RecommendationAssignee,
+  actor?: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('agent_recommendations')
+    .update({ assignee })
+    .eq('id', recommendationId);
+  if (error) throw new Error(`Failed to assign recommendation: ${error.message}`);
+  await appendActivityLog(
+    recommendationId,
+    'reassigned',
+    actor,
+    `Ditugaskan ke ${assignee.name}${assignee.role ? ` — ${assignee.role}` : ''}`,
+    { assignee }
+  );
 }
 
 // ─── Get Run History ─────────────────────────────────────────────────

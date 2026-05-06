@@ -12,6 +12,7 @@ import {
 import { getNorthStarMetrics } from '@/data/transportXSpecialists';
 import { useSpecialists } from '@/contexts/SpecialistsContext';
 import { useMetrics } from '@/contexts/MetricsContext';
+import { metricsData as localCatalog } from '@/data/metricsData';
 import { cn } from '@/lib/utils';
 import type { SpecialistInsight, SpecialistRecommendation } from '@/types/specialist';
 import type { MetricConfig } from '@/types/specialist';
@@ -183,6 +184,22 @@ function useResolvedMetrics(specialistId: string): ResolvedMetric[] {
         systemMetric = allSystemMetrics.find(
           (sm) => sm.name.toLowerCase() === mc.name.toLowerCase(),
         );
+      }
+      // Fallback: local catalog (pkbMetricsData / jrsiMetricsData). The
+      // cert-driven catalog only contains rows present in
+      // meta.metric_certification — PKB pilot metrics like M-PKB-K01
+      // aren't certified yet, so this fallback ensures their displayData
+      // (currentValue / changePercent / direction) still renders.
+      if (!systemMetric || systemMetric.displayData.currentValue === '—') {
+        const local = localCatalog.find(
+          (m) =>
+            m.id === mc.id ||
+            m.id === `metric-${mc.id}` ||
+            m.name.toLowerCase() === mc.name.toLowerCase(),
+        );
+        if (local && local.displayData.currentValue !== '—') {
+          systemMetric = local;
+        }
       }
 
       if (systemMetric && systemMetric.displayData.currentValue !== '—') {
