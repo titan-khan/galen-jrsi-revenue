@@ -39,7 +39,7 @@ function trend52(start: number, end: number, opts: { noise?: number; season?: nu
   return out;
 }
 
-const PLACEHOLDER_INSIGHT = { text: "Belum ada data — perlu populate gold.transaksi_fact.", boldParts: [] };
+const PLACEHOLDER_INSIGHT = { text: "Menunggu data transaksi pembayaran masuk untuk diaktifkan.", boldParts: [] };
 const fmtIDR = (n: number) => "Rp " + n.toLocaleString("id-ID");
 const fmtCount = (n: number) => n.toLocaleString("id-ID");
 const fmtPct = (n: number) => `${n}%`;
@@ -121,7 +121,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
     },
   }),
   "M-COMPL-002": defaults({
-    description: "Share registry dengan durasi_tunggakan_days > 0. Termasuk in-pyramid (Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif & Kronis) dan out-of-pyramid (Belum Terdaftar & Kendaraan Hantu). Tidak termasuk Patuh Aktif.",
+    description: "Persentase kendaraan yang belum bayar PKB tepat waktu (lebih dari nol hari telat). Mencakup semua kelompok kepatuhan kecuali Patuh Aktif.",
     metricType: "result",
     valueSentiment: "up-bad",
     direction: "down_is_good",
@@ -171,7 +171,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
   }),
   // M-COMPL-006 moved to data_quality domain via cert UPDATE
   "M-COMPL-006": defaults({
-    description: "Persentase kendaraan dengan segmen_kepatuhan IS NULL OR 'unclassified'. Self-measure of classifier rule coverage — bukan compliance metric.",
+    description: "Persentase kendaraan yang belum bisa dikategorikan ke salah satu kelompok kepatuhan. Indikator kualitas data klasifikasi — bukan metrik kepatuhan.",
     metricType: "observational",
     valueSentiment: "up-bad",
     direction: "down_is_good",
@@ -188,12 +188,12 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
   // M-COMPL-007 deprecated 2026-05-05: needs 2+ snapshots, not in pilot scope
   // M-COMPL-008 moved to data_quality + renamed "Data Freshness"
   "M-COMPL-008": defaults({
-    description: "Hari sejak reference_date snapshot registry. Operational data quality. Alert bila >180 hari, hard alert >365.",
+    description: "Jumlah hari sejak data registry terakhir di-refresh. Indikator kesegaran data operasional. Peringatan bila lebih dari 180 hari, kritis bila lebih dari 365 hari.",
     metricType: "observational",
     valueSentiment: "up-bad",
     direction: "down_is_good",
     displayData: {
-      filterContext: "reference_date = 2025-05-01",
+      filterContext: "Data registry per 2025-05-01",
       comparisonLabel: "alert >180 hari",
       currentValue: `${Math.max(0, Math.floor((Date.now() - new Date("2025-05-01").getTime()) / 86400000))} hari`,
       changePercent: 0, changeAbsolute: "0",
@@ -205,7 +205,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
 
   // ─── Revenue (6) ─────────────────────────────────────────────────────────
   "M-REV-001": defaults({
-    description: "Total estimasi PKB tahunan dari registry, berdasar median per kode_jenken.",
+    description: "Total estimasi PKB tahunan dari seluruh kendaraan terdaftar, dihitung berdasarkan tarif tengah per tipe kendaraan.",
     metricType: "result",
     isFollowing: true,
     direction: "up_is_good",
@@ -264,7 +264,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
     },
   }),
   "M-REV-005": defaults({
-    description: "PKB yang sudah terbayar (terealisasi) — butuh data transaksi (gold.transaksi_fact).",
+    description: "PKB yang sudah terbayar oleh wajib pajak — menunggu data transaksi pembayaran masuk untuk diaktifkan.",
     metricType: "result",
     direction: "up_is_good",
     displayData: { ...defaults().displayData, comparisonLabel: "—", currentValue: "—", insight: PLACEHOLDER_INSIGHT },
@@ -278,7 +278,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
 
   // ─── SWDKLLJ (3) — semua butuh transaksi_fact ───────────────────────────
   "M-SWD-001": defaults({
-    description: "Total SWDKLLJ pokok terealisasi — butuh gold.transaksi_fact.",
+    description: "Total kontribusi SWDKLLJ yang sudah dibayar — menunggu data transaksi pembayaran masuk untuk diaktifkan.",
     metricType: "result",
     direction: "up_is_good",
     displayData: { ...defaults().displayData, currentValue: "—", insight: PLACEHOLDER_INSIGHT },
@@ -332,7 +332,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
 
   // ─── Demographic (4) ─────────────────────────────────────────────────────
   "M-DEMO-001": defaults({
-    description: "Share kendaraan dengan kode_jenken = 'R' dari total registry. Berbeda dari M-D5-03 yang mengukur dari kejadian kecelakaan (population berbeda).",
+    description: "Persentase sepeda motor dari total kendaraan terdaftar. Mempengaruhi strategi channel kampanye karena pemilik motor cenderung lebih mudah dijangkau via WhatsApp.",
     metricType: "observational",
     direction: "neutral",
     displayData: {
@@ -364,7 +364,7 @@ export const pkbDisplayData: Record<string, DisplayPartial> = {
 
   // ─── Operational (3) — semua bronze, butuh campaign_log ──────────────────
   "M-OPS-001": defaults({
-    description: "Jumlah outreach kampanye yang dieksekusi — butuh gold_plus.campaign_log.",
+    description: "Jumlah upaya kontak ke wajib pajak yang sudah dijalankan dalam kampanye — menunggu data log kampanye masuk untuk diaktifkan.",
     metricType: "experimental",
     direction: "up_is_good",
     displayData: { ...defaults().displayData, currentValue: "—", insight: PLACEHOLDER_INSIGHT },
