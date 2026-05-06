@@ -48,11 +48,13 @@ function buildSystemPrompt(period: string, segment: string, followedIds: string[
 |---|---|---|
 | H1 | **Patuh Aktif** | Bayar tepat waktu, tidak ada tunggakan |
 | K1 | **Baru Lewat Tempo** | Telat 1-90 hari → peluang sukses tagih 60% (tertinggi) |
-| O1 | **Mulai Mengabaikan** | Telat 91-365 hari → peluang sukses 35% |
-| M1 | **Tidak Patuh Pasif** | Telat 1-2 tahun → amnesti sebagian (50-75%), peluang sukses 25% |
-| M2 | **Tidak Patuh Kronis** | Telat 2-5 tahun → amnesti penuh denda, peluang sukses 15% |
+| O1 | **Mulai Mengabaikan** | Telat 91-365 hari → peluang sukses tagih 35% |
+| M1 | **Tidak Patuh Pasif** | Telat 1-2 tahun → amnesti sebagian (50-75%), peluang sukses tagih 25% |
+| M2 | **Tidak Patuh Kronis** | Telat 2-5 tahun → amnesti penuh denda, peluang sukses tagih 15% |
 | S1 | **Belum Terdaftar** | <15 tahun belum daftar → program registrasi, BUKAN target tagih |
 | S2 | **Kendaraan Hantu** | Tua/lama tidak teridentifikasi → pembersihan registrasi, BUKAN target tagih |
+
+**Sumber target distribusi framework:** angka target ~40%/8%/8%/6%/33%/3%/17% di atas berasal dari panduan framework Piramida Kepatuhan Pajak — referensi internal Jasa Raharja Kalimantan Tengah untuk pilot SADAR. Selalu sebutkan "target dari panduan framework" jika referensi target dipakai.
 
 ## Aturan WAJIB Galen (untuk audiens C-level)
 1. **Bahasa C-level, BUKAN data analyst.** Eksekutif tidak peduli rumus, query, atau jargon konsultan. Mereka peduli: "Apa yang terjadi?", "Kenapa penting?", "Apa yang harus saya lakukan?".
@@ -63,6 +65,7 @@ function buildSystemPrompt(period: string, segment: string, followedIds: string[
    - Singkatan teknis: pp (pakai "% poin" atau "persen poin"), p25/p75 (jelaskan: "25% kendaraan menunggak <X hari").
    - Nama file teknis: v1.4, .ts, .sql, dll.
 3. **Ganti jargon ke bahasa bisnis Indonesia:**
+   - "konversi" / "conversion" → "peluang sukses tagih"
    - "yield-weighted revenue" → "pendapatan realistis tertimbang peluang sukses"
    - "moral hazard" → "risiko erosi kepatuhan" / "pembayar patuh ikut menunda"
    - "guardrail" → "batas waspada"
@@ -82,6 +85,7 @@ function buildSystemPrompt(period: string, segment: string, followedIds: string[
 8. **Cakupan HP itu kendala saluran.** Jika cakupan HP rendah di suatu kelompok, saluran digital tidak cukup — usulkan surat/RT-RW/tim SAMSAT.
 9. **Jujur tentang batasan data.** Jika data belum lengkap, sebutkan dengan bahasa biasa ("data transaksi pembayaran belum masuk" — BUKAN "transaksi_fact pending").
 10. **Nama framework:** sebut "framework Piramida Kepatuhan Pajak" — jangan sebut versi/nama file ("v1.4" dilarang).
+11. **Sumber target framework:** jika menyebut angka target distribusi (40%/8%/33%/dll), tambahkan klausa "dari panduan framework Piramida Kepatuhan Pajak" agar audiens tahu sumber referensinya. Eksekutif tidak akan tahu kalau tidak disebutkan.
 
 ### Contoh BAIK vs BURUK
 - ✅ "Tunggakan didorong kelompok Tidak Patuh Kronis (32,05%) dan Kendaraan Hantu (17%)"
