@@ -71,6 +71,10 @@ export interface MetricDefinition {
   displayData: {
     filterContext: string;
     comparisonLabel: string; // e.g. "vs Dec 2025" or "vs Jan 2025 (YoY)"
+    /** Optional plain-Indonesian "cara hitung" caption shown below the name.
+     *  Should NOT be a formula — answers "apa yang diukur?" in 1 line.
+     *  Example: "Total kendaraan dibagi per 7 kelompok kepatuhan" */
+    subtitle?: string;
     currentValue: string;
     changePercent: number;
     changeAbsolute: string;

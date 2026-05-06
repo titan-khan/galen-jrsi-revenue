@@ -94,11 +94,15 @@ const costToCollectRatio = (blendedChannelCost / totalYield) * 100;
 const fmtIDRb = (n: number) => "Rp " + (n / 1_000_000_000).toFixed(2).replace(".", ",") + " miliar";
 const fmtIDR = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 
-// ─── 52-week Sparkline Generator ────────────────────────────────────────────
-// Synthetic weekly trend (1 tahun) hingga snapshot 2026-05-05. Replace dengan
-// live aggregate dari `gold.transaksi_fact` saat tabel itu sudah di-populate.
+// ─── 30-day Daily Sparkline Generator ───────────────────────────────────────
+// Synthetic daily trend (1 bulan terakhir) hingga snapshot 2026-05-05. Replace
+// dengan live aggregate dari `gold.transaksi_fact` (kolom tanggal_transaksi /
+// snapshot_date) saat tabel itu sudah di-populate.
 //
 // Menggunakan deterministic seeded noise per metric agar konsisten antar render.
+const SNAPSHOT_DATE = "2026-05-05";
+const TREND_DAYS = 30;
+
 function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
@@ -108,7 +112,7 @@ function seededRandom(seed: number): () => number {
 }
 
 interface SparkOpts {
-  /** Starting value at t=-52 weeks */
+  /** Starting value at t=-30 days (1 bulan lalu) */
   start: number;
   /** Ending value at t=0 (snapshot date) */
   end: number;
@@ -121,22 +125,23 @@ interface SparkOpts {
 }
 
 function genWeeklyTrend(opts: SparkOpts): Array<{ month: string; value: number }> {
+  // Note: nama "genWeeklyTrend" dipertahankan untuk backward compat —
+  // sekarang generate 30-day daily.
   const { start, end, noise = 0.04, season = 0.05, seed = 42 } = opts;
   const rand = seededRandom(seed);
   const points: Array<{ month: string; value: number }> = [];
   const range = end - start;
-  // 2026-05-05 is the snapshot. 52 weeks back ~ 2025-05-13.
-  const snapshotDate = new Date("2026-05-05");
-  for (let i = 0; i < 52; i++) {
-    const t = i / 51; // 0 → 1 across the year
+  const snapshotDate = new Date(SNAPSHOT_DATE);
+  for (let i = 0; i < TREND_DAYS; i++) {
+    const t = i / (TREND_DAYS - 1);
     const baseTrend = start + range * t;
-    const seasonal = Math.sin((i / 52) * Math.PI * 2) * Math.abs(range || end || 1) * season;
+    const seasonal = Math.sin((i / TREND_DAYS) * Math.PI * 2) * Math.abs(range || end || 1) * season;
     const noiseDelta = (rand() - 0.5) * 2 * Math.abs(range || end || 1) * noise;
     const value = Math.max(0, baseTrend + seasonal + noiseDelta);
     const date = new Date(snapshotDate);
-    date.setDate(date.getDate() - (51 - i) * 7);
-    const isoWeek = date.toISOString().slice(0, 10); // YYYY-MM-DD
-    points.push({ month: isoWeek, value });
+    date.setDate(date.getDate() - (TREND_DAYS - 1 - i));
+    const isoDay = date.toISOString().slice(0, 10); // YYYY-MM-DD
+    points.push({ month: isoDay, value });
   }
   // Force last point to exact `end` so chart aligns with current snapshot value
   points[points.length - 1].value = end;
@@ -166,16 +171,16 @@ const SPARK_COST_TO_COLLECT = genWeeklyTrend({ start: costToCollectRatio + 0.8, 
 const SPARK_CHANNEL_MIX = genWeeklyTrend({ start: blendedCostPerVehicle * 1.05, end: blendedCostPerVehicle, noise: 0.01, season: 0.015, seed: 110 });
 
 const BASE = {
-  dataSource: "supabase://gold_plus.agg_segmen_kabupaten + ref.treatment_lookup (derived)",
+  dataSource: "Data segmentasi & panduan strategi penanganan",
   aggregation: "sum" as const,
   sparklineType: "non-cumulative" as const,
-  dateField: "snapshot_date",
+  dateField: "tanggal_snapshot",
   timeGranularity: "month" as const,
   filters: [],
   adjustableFilters: [],
   insightTypes: { trend: false, comparison: true, anomaly: false },
-  category: "Derived (BCG lens)",
-  owner: "pilot_data_team",
+  category: "Insight Strategis",
+  owner: "Tim Data Pilot",
   createdAt: "2026-05-05",
   updatedAt: "2026-05-05",
   parentMetricId: null,
@@ -186,9 +191,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-001",
-    name: "Segment Quality Index (Yield-Weighted Revenue)",
+    name: "Pendapatan Realistis Total (Tertimbang Peluang Sukses)",
     description:
-      `Pendapatan tertimbang per segmen × konversi est. "${N.K1}" = 8% volume tapi yield tertinggi (60% conv). "${N.M2}" = 33% volume tapi yield rendah (15% conv). Memprioritaskan ROI bukan size.`,
+      `Total pendapatan yang realistis bisa ditagih dari semua kelompok kepatuhan setelah ditimbang peluang sukses tagih per kelompok. "${N.K1}" hanya 8% kendaraan tapi penyumbang pendapatan terbesar (peluang sukses 60%). "${N.M2}" 33% kendaraan tapi peluang sukses hanya 15%. Bantu prioritaskan kelompok yang memberi hasil tercepat.`,
     measure: "yield_weighted_revenue",
     domain: "Revenue",
     metricType: "result",
@@ -196,16 +201,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "Palangka Raya · per-segmen yield",
-      comparisonLabel: `${N.K1}+${N.O1} vs ${N.M1}+${N.M2}`,
+      filterContext: "Total dari semua kelompok kepatuhan",
+      subtitle: "Total pendapatan realistis setelah memperhitungkan peluang sukses tagih",
+      comparisonLabel: `Top kontributor: ${N.K1} & ${N.O1}`,
       currentValue: fmtIDRb(totalYield),
       changePercent: 0,
       changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_SEGMENT_QUALITY,
       insight: {
-        text: `"${N.K1}" menyumbang ${fmtIDRb(yieldPerSeg.K1)} (${Math.round((yieldPerSeg.K1 / totalYield) * 100)}%) walau hanya 8% volume. "${N.M2}" hanya ${fmtIDRb(yieldPerSeg.M2)} (${Math.round((yieldPerSeg.M2 / totalYield) * 100)}%) dari 32% volume. Prioritas: ${N.K1} & ${N.O1} dulu.`,
-        boldParts: [fmtIDRb(yieldPerSeg.K1), `${Math.round((yieldPerSeg.K1 / totalYield) * 100)}%`, fmtIDRb(yieldPerSeg.M2)],
+        text: `"${N.K1}" sumbang ${fmtIDRb(yieldPerSeg.K1)} (${Math.round((yieldPerSeg.K1 / totalYield) * 100)}% dari total) padahal hanya 8% kendaraan — paling produktif. "${N.M2}" hanya ${fmtIDRb(yieldPerSeg.M2)} dari 32% kendaraan karena peluang sukses rendah. Fokus utama: tagih "${N.K1}" & "${N.O1}" dulu untuk hasil cepat.`,
+        boldParts: [fmtIDRb(yieldPerSeg.K1), `${Math.round((yieldPerSeg.K1 / totalYield) * 100)}%`, fmtIDRb(yieldPerSeg.M2), N.K1, N.O1],
       },
     },
   },
@@ -214,9 +220,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-002",
-    name: "Wave-1 Addressable Revenue (90 hari)",
+    name: "Target Pendapatan Gelombang Pertama (90 Hari)",
     description:
-      `Pendapatan addressable dari segmen "${N.K1}" + "${N.O1}" dengan HP valid dalam 90 hari. ROI tertinggi: denda masih kecil, kanal digital tersedia, conversion 35-60%. Bukan TAM abstract.`,
+      `Pendapatan yang bisa ditagih 90 hari ke depan: kelompok "${N.K1}" + "${N.O1}" yang punya nomor handphone. Imbal hasil tertinggi karena denda masih kecil, bisa via WhatsApp, peluang sukses 35-60%. Angka komitmen yang realistis — bukan total potensi yang abstrak.`,
     measure: "wave1_addressable_revenue",
     domain: "Revenue",
     metricType: "actionable",
@@ -224,15 +230,16 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: `${N.K1} + ${N.O1} · HP valid · 90 hari`,
-      comparisonLabel: "vs Total TAM Rp 164,24 T",
+      filterContext: `${N.K1} + ${N.O1} · punya nomor handphone · 90 hari`,
+      subtitle: "Pendapatan yang realistis bisa ditagih dalam 90 hari pertama",
+      comparisonLabel: "vs total potensi Rp 164,24 miliar",
       currentValue: fmtIDRb(wave1Yield),
       changePercent: 0,
       changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_WAVE1,
       insight: {
-        text: `${fmtIDRb(wave1Yield)} actionable next 90 hari via WhatsApp + reminder SMS. Bukan ${fmtIDRb(totalYield)} total — angka ini bisa dikomitkan ke target gelombang 1.`,
+        text: `${fmtIDRb(wave1Yield)} bisa ditagih 90 hari ke depan via WhatsApp + SMS pengingat. Angka ini realistis untuk komitmen target gelombang pertama — bukan total potensi ${fmtIDRb(totalYield)} yang sulit dicapai sekaligus.`,
         boldParts: [fmtIDRb(wave1Yield), "90 hari", "WhatsApp"],
       },
     },
@@ -242,9 +249,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-003",
-    name: "Phone Coverage × Segment",
+    name: "Cakupan Nomor Handphone Kelompok Terendah",
     description:
-      `Cakupan HP per segmen — agregat 73% menyembunyikan ketimpangan. "${N.S1}" hanya 12%, "${N.S2}" hanya 4% — channel digital tidak cukup untuk segmen ini. "${N.K1}" & "${N.O1}" ≥78% — wave-1 ready.`,
+      `Cakupan nomor handphone di kelompok kepatuhan paling rendah — yaitu "${N.S2}" Kendaraan Hantu dengan 4%. Angka ini penting karena menentukan apakah saluran digital cukup, atau wajib pakai surat / kunjungan tim lapangan SAMSAT. Detail cakupan kelompok lain ada di insight.`,
     measure: "phone_coverage_per_segment",
     domain: "Treatment",
     metricType: "result",
@@ -252,16 +259,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "per-segmen · pct_punya_hp",
-      comparisonLabel: "vs aggregate 73,46%",
-      currentValue: `${N.H1} ${PHONE_BY_SEG.H1}% · ${N.K1} ${PHONE_BY_SEG.K1}% · ${N.M2} ${PHONE_BY_SEG.M2}% · ${N.S2} ${PHONE_BY_SEG.S2}%`,
+      filterContext: `Kelompok ${N.S2} · paling sulit dijangkau`,
+      subtitle: `Cakupan Nomor Handphone di "${N.S2}" — kelompok paling sulit dijangkau`,
+      comparisonLabel: "vs rata-rata keseluruhan 73,46%",
+      currentValue: `${PHONE_BY_SEG.S2}%`,
       changePercent: 0,
       changeAbsolute: "0",
       status: "warning",
       sparklineData: SPARK_PHONE_COVERAGE,
       insight: {
-        text: `"${N.S1}" & "${N.S2}" phone coverage hanya ${PHONE_BY_SEG.S1}%/${PHONE_BY_SEG.S2}% — butuh kanal offline (surat, RT-RW). "${N.K1}" & "${N.O1}" ≥${PHONE_BY_SEG.O1}% siap WhatsApp wave-1.`,
-        boldParts: [`${PHONE_BY_SEG.S1}%`, `${PHONE_BY_SEG.S2}%`, "WhatsApp", "RT-RW"],
+        text: `"${N.S2}" hanya ${PHONE_BY_SEG.S2}% punya nomor handphone, "${N.S1}" ${PHONE_BY_SEG.S1}% — wajib didatangi langsung (surat, RT-RW, tim SAMSAT). Bandingkan dengan "${N.H1}" ${PHONE_BY_SEG.H1}% & "${N.K1}" ${PHONE_BY_SEG.K1}% yang siap kampanye WhatsApp.`,
+        boldParts: [`${PHONE_BY_SEG.S2}%`, `${PHONE_BY_SEG.S1}%`, `${PHONE_BY_SEG.H1}%`, `${PHONE_BY_SEG.K1}%`, "WhatsApp"],
       },
     },
   },
@@ -270,9 +278,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-004",
-    name: "Pyramid Deviation vs Framework Piramida Kepatuhan Pajak",
+    name: "Selisih Patuh Aktif vs Target Piramida",
     description:
-      `Distribusi aktual vs ekspektasi framework Piramida Kepatuhan Pajak (per segmen). "${N.H1}" underperform -14,77pp = erosi budaya patuh. "${N.M2}" dekat baseline (-0,95pp). "${N.S2}" surplus +1,30pp = kendaraan hantu butuh cleanup.`,
+      `Seberapa jauh kelompok "${N.H1}" dari target distribusi panduan framework Piramida Kepatuhan Pajak (40%). Sinyal kesehatan kultur patuh — semakin negatif, semakin lemah kepatuhan struktural. Detail per kelompok lainnya ada di insight.`,
     measure: "pyramid_deviation_pp",
     domain: "Compliance",
     metricType: "result",
@@ -280,16 +288,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "actual_pct − framework_v1.4_pct",
-      comparisonLabel: "pp gap (percentage points)",
-      currentValue: `${N.H1} ${pyramidDeviation.H1.toFixed(2)}pp · ${N.S2} +${pyramidDeviation.S2.toFixed(2)}pp`,
-      changePercent: pyramidDeviation.H1, // headline = Patuh Aktif deviation
-      changeAbsolute: `${pyramidDeviation.H1.toFixed(2)}pp`,
-      status: "critical", // Patuh Aktif underperform >10pp
+      filterContext: `Selisih ${N.H1} vs target panduan 40%`,
+      subtitle: `Seberapa jauh "${N.H1}" dari target panduan framework`,
+      comparisonLabel: "Target dari panduan framework: 40%",
+      currentValue: `${pyramidDeviation.H1.toFixed(2).replace(".", ",")}%`,
+      changePercent: pyramidDeviation.H1,
+      changeAbsolute: `${pyramidDeviation.H1.toFixed(2).replace(".", ",")}% di bawah target`,
+      status: "critical",
       sparklineData: SPARK_PYRAMID_DEV,
       insight: {
-        text: `"${N.H1}" ${pyramidDeviation.H1.toFixed(2)}pp di bawah baseline 40% — kepatuhan struktural lebih lemah dari ekspektasi. "${N.S2}" +${pyramidDeviation.S2.toFixed(2)}pp = beban kendaraan hantu. Implikasi: butuh program retensi "${N.H1}" sekaligus deregistrasi "${N.S2}".`,
-        boldParts: [`${pyramidDeviation.H1.toFixed(2)}pp`, N.H1, `+${pyramidDeviation.S2.toFixed(2)}pp`, N.S2],
+        text: `"${N.H1}" lebih rendah ${Math.abs(pyramidDeviation.H1).toFixed(2).replace(".", ",")}% dari target 40% — sinyal kepatuhan struktural lebih lemah dari ekspektasi. "${N.S2}" lebih banyak ${pyramidDeviation.S2.toFixed(2).replace(".", ",")}% dari target (beban kendaraan tidak teridentifikasi). Butuh dua aksi paralel: program retensi pembayar patuh + pembersihan registrasi.`,
+        boldParts: [`${Math.abs(pyramidDeviation.H1).toFixed(2).replace(".", ",")}%`, N.H1, N.S2],
       },
     },
   },
@@ -298,9 +307,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-005",
-    name: "Vehicle Age × Segment",
+    name: "Umur Rata-rata Kendaraan Hantu",
     description:
-      `Rata-rata umur kendaraan per segmen (gold_plus.agg_segmen_jenken). "${N.S2}" = 22 tahun → bukan collection problem, ini cleanup. "${N.M2}" = 14 tahun → korelasi kuat dengan denda akumulatif.`,
+      `Rata-rata umur kendaraan di kelompok "${N.S2}" — kelompok kendaraan paling tua. Indikator bahwa kelompok ini kemungkinan besar sudah tidak beroperasi, jadi bukan target penagihan melainkan kandidat penghapusan registrasi. Detail kelompok lain ada di insight.`,
     measure: "avg_vehicle_age_per_segment",
     domain: "Demographic",
     metricType: "observational",
@@ -308,16 +317,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "tahun · per-segmen",
-      comparisonLabel: "vs aggregate 13 tahun",
-      currentValue: `${N.S2} ${AGE_BY_SEG.S2}thn · ${N.M2} ${AGE_BY_SEG.M2}thn · ${N.K1} ${AGE_BY_SEG.K1}thn`,
+      filterContext: `${N.S2} · kelompok kendaraan tertua`,
+      subtitle: `Rata-rata umur "${N.S2}" — kelompok kendaraan paling tua`,
+      comparisonLabel: "vs rata-rata keseluruhan 13 tahun",
+      currentValue: `${AGE_BY_SEG.S2} tahun`,
       changePercent: 0,
       changeAbsolute: "0",
       status: "warning",
       sparklineData: SPARK_VEHICLE_AGE,
       insight: {
-        text: `"${N.S2}" rata-rata ${AGE_BY_SEG.S2} tahun + 4% phone = kandidat deregistrasi, BUKAN collection. "${N.M2}" ${AGE_BY_SEG.M2} tahun → kemungkinan denda > nilai pasar kendaraan.`,
-        boldParts: [`${AGE_BY_SEG.S2} tahun`, "deregistrasi", `${AGE_BY_SEG.M2} tahun`],
+        text: `"${N.S2}" rata-rata ${AGE_BY_SEG.S2} tahun + hanya 4% punya nomor handphone → kandidat penghapusan registrasi, bukan target penagihan. Pembanding: "${N.M2}" rata-rata ${AGE_BY_SEG.M2} tahun (denda akumulasi sering melebihi nilai jual), "${N.K1}" ${AGE_BY_SEG.K1} tahun.`,
+        boldParts: [`${AGE_BY_SEG.S2} tahun`, "penghapusan registrasi", `${AGE_BY_SEG.M2} tahun`],
       },
     },
   },
@@ -326,9 +336,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-006",
-    name: `Stranded Revenue (${N.M2} & ${N.S2})`,
+    name: `Pendapatan yang Sulit Ditagih (${N.M2} & ${N.S2})`,
     description:
-      `Pendapatan struktural tidak bisa di-collect: principal "${N.M2}" + "${N.S2}" yang melebihi yield. Honest framing — ini bukan TAM yang realistik tanpa amnesti dan deregistrasi.`,
+      `Estimasi pendapatan dari kelompok "${N.M2}" + "${N.S2}" yang secara struktural sulit ditagih tanpa intervensi khusus. Ini bukan total potensi yang realistis — angka ini hanya bergerak kalau ada program amnesti denda dan pembersihan registrasi. Tampilkan transparan agar tidak salah janji ke stakeholder.`,
     measure: "stranded_revenue",
     domain: "Revenue",
     metricType: "result",
@@ -336,16 +346,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: `${N.M2} + ${N.S2} · principal − yield konservatif`,
-      comparisonLabel: "vs total potensi Rp 164,24 T",
+      filterContext: `${N.M2} + ${N.S2} · pendapatan struktural sulit ditagih`,
+      subtitle: "Pendapatan yang sulit ditagih tanpa amnesti & pembersihan registrasi",
+      comparisonLabel: "vs total potensi Rp 164,24 miliar",
       currentValue: fmtIDRb(strandedRevenue),
       changePercent: 0,
       changeAbsolute: "0",
       status: "warning",
       sparklineData: SPARK_STRANDED,
       insight: {
-        text: `${fmtIDRb(strandedRevenue)} stranded di "${N.M2}" + "${N.S2}" (${(SEG.M2.pct + SEG.S2.pct).toFixed(1)}% kendaraan). Tanpa amnesti "${N.M2}" + program deregistrasi "${N.S2}", angka ini tidak bergerak. Hindari janji upside ke stakeholder.`,
-        boldParts: [fmtIDRb(strandedRevenue), N.M2, N.S2, "amnesti", "deregistrasi"],
+        text: `${fmtIDRb(strandedRevenue)} terjebak di "${N.M2}" + "${N.S2}" (${(SEG.M2.pct + SEG.S2.pct).toFixed(1)}% dari total kendaraan). Tanpa program amnesti denda untuk "${N.M2}" dan penghapusan registrasi untuk "${N.S2}", angka ini tidak akan bergerak. Hindari janji yang tidak realistis ke stakeholder.`,
+        boldParts: [fmtIDRb(strandedRevenue), N.M2, N.S2, "amnesti denda", "penghapusan registrasi"],
       },
     },
   },
@@ -354,9 +365,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-007",
-    name: `Moral Hazard Risk (${N.H1} & ${N.K1} guardrail)`,
+    name: `Persentase Pembayar Patuh & Hampir Telat`,
     description:
-      `Persentase kendaraan compliant ("${N.H1}" + "${N.K1}") yang harus dijaga. Threshold ≥30% — bila program amnesti aktif menurunkan share ini, budaya patuh terkikis. Tracking guardrail BCG-style.`,
+      `Persentase kendaraan yang masih bayar tepat waktu atau baru sedikit telat 1-90 hari (gabungan "${N.H1}" + "${N.K1}"). Batas waspada minimal 30% — jika angka ini turun di bawah 30% saat program amnesti aktif, artinya pembayar yang patuh mulai ikut menunda karena merasa "yang telat justru dimaafkan". Pantau mingguan saat amnesti berjalan.`,
     measure: "moral_hazard_h1k1_share",
     domain: "Compliance",
     metricType: "result",
@@ -364,16 +375,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: `${N.H1} + ${N.K1} share · target ≥30%`,
-      comparisonLabel: "guardrail threshold",
-      currentValue: `${moralHazardPct.toFixed(2)}%`,
+      filterContext: `${N.H1} + ${N.K1} · batas waspada 30%`,
+      subtitle: "Gabungan pembayar tepat waktu + yang baru telat 1-90 hari",
+      comparisonLabel: "Batas waspada minimal 30%",
+      currentValue: `${moralHazardPct.toFixed(2).replace(".", ",")}%`,
       changePercent: moralHazardPct - 30, // delta from threshold
-      changeAbsolute: `${(moralHazardPct - 30).toFixed(2)}pp vs 30%`,
+      changeAbsolute: `${(moralHazardPct - 30).toFixed(2).replace(".", ",")}% di atas batas 30%`,
       status: moralHazardPct >= 30 ? "healthy" : "critical",
       sparklineData: SPARK_MORAL_HAZARD,
       insight: {
-        text: `"${N.H1}" + "${N.K1}" = ${moralHazardPct.toFixed(2)}% (above 30% threshold). Saat program amnesti "${N.M2}" di-launch, monitor weekly — bila turun di bawah 30%, hentikan amnesti generic.`,
-        boldParts: [`${moralHazardPct.toFixed(2)}%`, "30%", `amnesti ${N.M2}`],
+        text: `"${N.H1}" + "${N.K1}" saat ini ${moralHazardPct.toFixed(2).replace(".", ",")}% — masih di atas batas waspada 30%. Saat amnesti "${N.M2}" diluncurkan, pantau angka ini mingguan: jika turun di bawah 30%, artinya kultur patuh mulai terkikis dan amnesti perlu dihentikan.`,
+        boldParts: [`${moralHazardPct.toFixed(2).replace(".", ",")}%`, "30%", `amnesti ${N.M2}`],
       },
     },
   },
@@ -382,9 +394,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-008",
-    name: "Treatment Coverage",
+    name: "Kesiapan Strategi per Kelompok",
     description:
-      "Persentase kendaraan ter-mapping ke treatment lookup (ref.treatment_lookup). 100% = semua segmen punya strategi yang ditentukan. Operational readiness sebelum kampanye.",
+      "Persentase kendaraan yang sudah punya strategi penanganan terdefinisi. 100% berarti semua kelompok kepatuhan sudah punya panduan jelas (saluran, pesan, target peluang sukses). Indikator kesiapan operasional sebelum kampanye dimulai.",
     measure: "treatment_coverage_pct",
     domain: "Treatment",
     metricType: "observational",
@@ -392,16 +404,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "ref.treatment_lookup mapping",
-      comparisonLabel: "operational readiness",
+      filterContext: "Cakupan strategi penanganan per kelompok",
+      subtitle: "Kelompok kepatuhan yang sudah punya strategi penanganan terdefinisi",
+      comparisonLabel: "Kesiapan operasional",
       currentValue: `${treatmentCoverage}%`,
       changePercent: 0,
       changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_TREATMENT_COV,
       insight: {
-        text: `${treatmentCoverage}% kendaraan punya treatment plan defined (7/7 segmen). Operasional siap: tinggal eksekusi field SAMSAT + WhatsApp blast.`,
-        boldParts: [`${treatmentCoverage}%`, "7/7 segmen"],
+        text: `${treatmentCoverage}% kendaraan sudah punya panduan strategi (7 dari 7 kelompok kepatuhan). Operasional siap: tinggal jalankan tim lapangan SAMSAT + kampanye WhatsApp.`,
+        boldParts: [`${treatmentCoverage}%`, "7 dari 7 kelompok"],
       },
     },
   },
@@ -410,9 +423,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-009",
-    name: "Cost-to-Collect Ratio (estimate)",
+    name: "Estimasi Biaya per Rupiah Tertagih",
     description:
-      "Estimasi rasio biaya kampanye terhadap pendapatan tertagih. Asumsi: WhatsApp Rp 50/ken, field SAMSAT Rp 5.000/ken, weighted by phone availability per segmen.",
+      "Perkiraan biaya kampanye dibanding pendapatan yang berhasil ditagih. Asumsi: pesan WhatsApp Rp 50/kendaraan, kunjungan tim SAMSAT Rp 5.000/kendaraan, ditimbang berdasar cakupan nomor handphone per kelompok kepatuhan. Target ideal di bawah 8% (standar industri).",
     measure: "cost_to_collect_ratio_pct",
     domain: "Operational",
     metricType: "result",
@@ -420,16 +433,17 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "biaya estimasi / yield total",
-      comparisonLabel: "target ≤8% (industry benchmark)",
-      currentValue: `${costToCollectRatio.toFixed(2)}%`,
+      filterContext: "Estimasi sebelum kampanye dimulai",
+      subtitle: "Estimasi biaya untuk menagih per rupiah yang berhasil masuk",
+      comparisonLabel: "Target ideal di bawah 8%",
+      currentValue: `${costToCollectRatio.toFixed(2).replace(".", ",")}%`,
       changePercent: costToCollectRatio - 8,
-      changeAbsolute: `${(costToCollectRatio - 8).toFixed(2)}pp vs 8% target`,
+      changeAbsolute: `${(costToCollectRatio - 8).toFixed(2).replace(".", ",")}% di atas target 8%`,
       status: costToCollectRatio <= 8 ? "healthy" : costToCollectRatio <= 12 ? "warning" : "critical",
       sparklineData: SPARK_COST_TO_COLLECT,
       insight: {
-        text: `${costToCollectRatio.toFixed(2)}% cost-to-collect (${fmtIDR(blendedCostPerVehicle)}/kendaraan blended). Target ≤8%. Pre-campaign estimate — refresh setelah field cost actual masuk.`,
-        boldParts: [`${costToCollectRatio.toFixed(2)}%`, fmtIDR(blendedCostPerVehicle), "8%"],
+        text: `Estimasi ${costToCollectRatio.toFixed(2).replace(".", ",")}% biaya per rupiah tertagih (rata-rata ${fmtIDR(blendedCostPerVehicle)} per kendaraan). Target ideal di bawah 8%. Angka ini estimasi sebelum kampanye — perlu di-update setelah biaya tim lapangan aktual masuk.`,
+        boldParts: [`${costToCollectRatio.toFixed(2).replace(".", ",")}%`, fmtIDR(blendedCostPerVehicle), "8%"],
       },
     },
   },
@@ -438,9 +452,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-010",
-    name: "Channel-Mix Cost (per kendaraan)",
+    name: "Biaya Outreach per Kendaraan",
     description:
-      "Biaya rata-rata per kendaraan reachable berdasarkan channel mix optimal. WhatsApp Rp 50, field SAMSAT Rp 5.000, surat Rp 1.500. Drives budget allocation.",
+      "Rata-rata biaya menjangkau satu kendaraan, dengan pembagian channel optimal: WhatsApp Rp 50, kunjungan SAMSAT Rp 5.000, surat Rp 1.500. Dasar untuk alokasi anggaran kampanye per kelompok kepatuhan.",
     measure: "channel_mix_cost_idr",
     domain: "Operational",
     metricType: "result",
@@ -448,15 +462,16 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "blended cost · weighted by phone availability",
-      comparisonLabel: "vs WhatsApp-only Rp 50",
+      filterContext: "Rata-rata biaya per kendaraan dijangkau",
+      subtitle: "Rata-rata biaya menjangkau satu kendaraan (disesuaikan cakupan nomor handphone)",
+      comparisonLabel: "vs WhatsApp saja Rp 50",
       currentValue: fmtIDR(blendedCostPerVehicle),
       changePercent: 0,
       changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_CHANNEL_MIX,
       insight: {
-        text: `${fmtIDR(blendedCostPerVehicle)} blended per kendaraan. "${N.K1}" & "${N.O1}" mostly WhatsApp (Rp ${COST_WHATSAPP}), "${N.S1}" & "${N.S2}" wajib field (${fmtIDR(COST_FIELD_SAMSAT)}). Re-route ke surat (${fmtIDR(COST_SURAT)}) untuk mid-cost segmen.`,
+        text: `Rata-rata ${fmtIDR(blendedCostPerVehicle)} per kendaraan. "${N.K1}" & "${N.O1}" mayoritas via WhatsApp (Rp ${COST_WHATSAPP}/kendaraan), "${N.S1}" & "${N.S2}" wajib kunjungan tim SAMSAT (${fmtIDR(COST_FIELD_SAMSAT)}/kendaraan). Pertimbangkan surat (${fmtIDR(COST_SURAT)}/kendaraan) untuk kelompok di tengah.`,
         boldParts: [fmtIDR(blendedCostPerVehicle), `Rp ${COST_WHATSAPP}`, fmtIDR(COST_FIELD_SAMSAT)],
       },
     },
@@ -500,15 +515,15 @@ function buildPerSegmentMetrics(): MetricDefinition[] {
     return "healthy";
   }
 
-  // Per-segment treatment guidance (concise, executive-ready)
+  // Per-segment treatment guidance (executive-ready, plain Indonesian)
   const TREATMENT: Record<Code, string> = {
-    H1: `Pertahankan apresiasi & retensi. Hindari beban regulasi tambahan ke segmen ini saat amnesti aktif — risiko erosi kultur.`,
-    K1: `Channel: WhatsApp (${PHONE_BY_SEG.K1}% phone). 3-pesan campaign 6 minggu — denda masih kecil, conversion 60% (tertinggi).`,
-    O1: `Channel: WhatsApp + SMS (${PHONE_BY_SEG.O1}% phone). Tambahkan insentif diskon denda 25% untuk dorong konversi 35%.`,
-    M1: `Amnesti parsial 50-75% denda. Channel mix WhatsApp + surat. Conversion target 25%; deadline 60 hari.`,
-    M2: `Amnesti penuh denda 90 hari + razia pasca-amnesti. Conversion 15%, beban historis terbesar. Awas moral hazard ke "${N.H1}" & "${N.K1}".`,
-    S1: `Bukan masalah collection — program registrasi. ${PHONE_BY_SEG.S1}% phone → field SAMSAT + RT-RW outreach.`,
-    S2: `Bukan masalah collection — program deregistrasi. Umur rata-rata ${AGE_BY_SEG.S2} tahun + ${PHONE_BY_SEG.S2}% phone → cleanup, bukan kampanye.`,
+    H1: `Pertahankan apresiasi & retensi. Hindari beban regulasi tambahan saat amnesti aktif — bisa kikis kultur patuh.`,
+    K1: `Saluran: WhatsApp (${PHONE_BY_SEG.K1}% punya nomor handphone). Kampanye 3 pesan dalam 6 minggu — denda masih kecil, peluang sukses 60% (tertinggi).`,
+    O1: `Saluran: WhatsApp + SMS (${PHONE_BY_SEG.O1}% punya nomor handphone). Tawarkan diskon denda 25% untuk dorong peluang sukses jadi 35%.`,
+    M1: `Amnesti sebagian (50-75% denda dihapus). Saluran campuran WhatsApp + surat. Target sukses 25%, batas waktu 60 hari.`,
+    M2: `Amnesti penuh denda 90 hari + razia setelahnya. Peluang sukses 15%, beban historis terbesar. Pantau ketat: jangan sampai pembayar patuh ("${N.H1}" & "${N.K1}") ikut menunda.`,
+    S1: `Bukan target penagihan — fokusnya program registrasi. Hanya ${PHONE_BY_SEG.S1}% punya nomor handphone, butuh kunjungan tim SAMSAT + RT-RW.`,
+    S2: `Bukan target penagihan — fokusnya pembersihan registrasi. Rata-rata umur ${AGE_BY_SEG.S2} tahun + hanya ${PHONE_BY_SEG.S2}% punya nomor handphone, kemungkinan sudah tidak beroperasi.`,
   };
 
   // All 7 segments are followed — user intent: monitor each segment granularly.
@@ -553,7 +568,7 @@ function buildPerSegmentMetrics(): MetricDefinition[] {
       ...BASE,
       id: `M-SEG-${code}`,
       name: `Segmen: ${meta.name}`,
-      description: `Monitoring spesifik segmen "${meta.name}" — ${meta.description}. Treatment standard: ${meta.treatment}.`,
+      description: `Pangsa kelompok "${meta.name}" dari total kendaraan terdaftar. ${meta.description}. Strategi penanganan: ${meta.treatment}. Target ${FW[code as keyof typeof FW]}% mengacu pada panduan framework Piramida Kepatuhan Pajak (referensi internal Jasa Raharja Kalimantan Tengah).`,
       measure: `segment_${code.toLowerCase()}_count`,
       domain: "Compliance",
       metricType: "result",
@@ -561,19 +576,20 @@ function buildPerSegmentMetrics(): MetricDefinition[] {
       direction,
       isFollowing,
       displayData: {
-        filterContext: `${meta.name} · framework baseline ${FW[code as keyof typeof FW]}%`,
-        comparisonLabel: `vs framework Piramida Kepatuhan Pajak (${FW[code as keyof typeof FW]}%)`,
-        currentValue: `${seg.n.toLocaleString("id-ID")} (${seg.pct.toFixed(2)}%)`,
+        filterContext: `Pangsa ${meta.name}`,
+        subtitle: meta.description,
+        comparisonLabel: `Target dari panduan framework: ${FW[code as keyof typeof FW]}%`,
+        currentValue: `${seg.pct.toFixed(2)}%`,
         changePercent: Number(dev.toFixed(2)),
-        changeAbsolute: `${devSign}${dev.toFixed(2)}pp`,
+        changeAbsolute: `${devSign}${dev.toFixed(2).replace(".", ",")}% poin dari target`,
         status,
         sparklineData: sparkline,
         insight: {
-          text: `${seg.n.toLocaleString("id-ID")} kendaraan (${seg.pct.toFixed(2)}%) — ${devSign}${dev.toFixed(2)}pp ${dev < 0 ? "di bawah" : "di atas"} baseline. Phone coverage ${phone}%. ${TREATMENT[code]}`,
+          text: `${seg.n.toLocaleString("id-ID")} kendaraan (${seg.pct.toFixed(2).replace(".", ",")}% dari total) — ${devSign}${dev.toFixed(2).replace(".", ",")}% ${dev < 0 ? "di bawah" : "di atas"} target panduan ${FW[code as keyof typeof FW]}%. ${phone}% punya nomor handphone. ${TREATMENT[code]}`,
           boldParts: [
             `${seg.n.toLocaleString("id-ID")} kendaraan`,
-            `${seg.pct.toFixed(2)}%`,
-            `${devSign}${dev.toFixed(2)}pp`,
+            `${seg.pct.toFixed(2).replace(".", ",")}%`,
+            `${devSign}${dev.toFixed(2).replace(".", ",")}%`,
             `${phone}%`,
           ],
         },

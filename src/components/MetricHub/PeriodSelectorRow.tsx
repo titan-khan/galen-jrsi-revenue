@@ -63,13 +63,16 @@ export function PeriodSelectorRow({ filters, onFiltersChange }: PeriodSelectorRo
   if (!enableJrsiLegacy) {
     return (
       <div className="flex items-center gap-2 flex-wrap text-[12px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1"
+          title="Tanggal snapshot diambil dari registry data refresh terakhir di Palangka Raya. Semua metric card menampilkan nilai pada tanggal ini, dengan tren 30 hari sebelumnya untuk konteks perubahan."
+        >
           <CameraIcon className="h-3.5 w-3.5 text-muted-foreground/70" />
           <span className="font-medium text-foreground/90">Snapshot {PKB_SNAPSHOT_DATE}</span>
           <span className="text-muted-foreground/70">· {PKB_SNAPSHOT_LOCATION}</span>
         </span>
         <span className="text-muted-foreground/60">
-          Time-series akan aktif setelah <code className="px-1 py-0.5 rounded bg-muted/60 text-[11px]">gold.transaksi_fact</code> di-ingest.
+          Tren 30 hari terakhir hingga tanggal snapshot — sumber: registry kendaraan Palangka Raya. Tren harian akan menjadi data aktual setelah data transaksi pembayaran masuk.
         </span>
       </div>
     );

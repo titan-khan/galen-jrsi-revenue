@@ -62,37 +62,63 @@ function deriveChangeFromSpark(
   return { changePercent: Number(pct.toFixed(2)), changeAbsolute: absStr, status };
 }
 
-/** Format absolute delta dengan unit hint dari currentValue ("Rp …", "%", count). */
+/** Format absolute delta dengan unit hint dari currentValue ("Rp …", "%", count).
+ *  Konsisten pakai "Rp X,XX miliar" format. Singkatan "pp" diganti "% poin". */
 function formatChangeAbsolute(delta: number, currentValue: string): string {
   const sign = delta >= 0 ? "+" : "";
   if (currentValue.startsWith("Rp")) {
+    if (Math.abs(delta) >= 1e12) return `${sign}Rp ${(delta / 1e12).toFixed(2).replace(".", ",")} triliun`;
     if (Math.abs(delta) >= 1e9) return `${sign}Rp ${(delta / 1e9).toFixed(2).replace(".", ",")} miliar`;
     if (Math.abs(delta) >= 1e6) return `${sign}Rp ${(delta / 1e6).toFixed(1).replace(".", ",")} juta`;
     return `${sign}Rp ${Math.round(delta).toLocaleString("id-ID")}`;
   }
   if (currentValue.includes("%")) {
-    return `${sign}${delta.toFixed(2)}pp`;
+    return `${sign}${delta.toFixed(2).replace(".", ",")}% poin`;
   }
   if (Math.abs(delta) >= 1000) return `${sign}${Math.round(delta).toLocaleString("id-ID")}`;
-  return `${sign}${delta.toFixed(1)}`;
+  return `${sign}${delta.toFixed(1).replace(".", ",")}`;
 }
 
+/** Reference label untuk rate% — eksekutif harus tahu compare-nya vs apa.
+ *  Sparkline 30 hari → rate% = nilai sekarang vs nilai 30 hari lalu. */
+const RATE_REFERENCE_LABEL = "vs 1 bulan lalu";
+
 /**
- * Apply derived change rate to a metric in-place if the spark has 2+ points.
- * Preserves explicit non-zero changePercent (some metrics intentionally show 0).
+ * Apply derived change rate to a metric. ALL metric cards yang punya sparkline
+ * 30-titik akan dapat rate% dihitung otomatis + acuan compare di comparisonLabel.
+ *
+ * Aturan acuan compare di comparisonLabel:
+ * - Jika belum ada (kosong / "—"): set ke RATE_REFERENCE_LABEL
+ * - Jika sudah punya frasa pembanding ("vs ...", "Target ...", "Batas ..."):
+ *   tambahkan rate reference dengan separator " · " agar audiens tetap tahu
+ *   bahwa rate% di card itu compare-nya 1 bulan lalu (bukan target).
  */
 function applyDerivedChangeRate(m: MetricDefinition): MetricDefinition {
   const spark = m.displayData?.sparklineData;
   if (!spark || spark.length < 2) return m;
   const computed = deriveChangeFromSpark(spark, m.direction, m.displayData.currentValue);
   if (!computed) return m;
+
+  const existingLabel = (m.displayData.comparisonLabel || "").trim();
+  // Already includes the rate reference? Skip to avoid duplication.
+  const alreadyHasRateRef = existingLabel.includes(RATE_REFERENCE_LABEL);
+  let enrichedLabel: string;
+  if (alreadyHasRateRef || existingLabel === "" || existingLabel === "—") {
+    enrichedLabel = existingLabel || RATE_REFERENCE_LABEL;
+    if (!alreadyHasRateRef && existingLabel === "") enrichedLabel = RATE_REFERENCE_LABEL;
+  } else {
+    // Selalu append rate reference dengan " · " agar tiap card punya 2 acuan:
+    // (1) target/batas yang sudah ada, (2) rate% acuan periode 1 bulan
+    enrichedLabel = `${existingLabel} · rate ${RATE_REFERENCE_LABEL}`;
+  }
+
   return {
     ...m,
     displayData: {
       ...m.displayData,
       changePercent: computed.changePercent,
       changeAbsolute: computed.changeAbsolute,
-      // Keep critical status from data (e.g. tunggakan 74.77%) but upgrade if rate-derived is worse
+      comparisonLabel: enrichedLabel,
       status: severityRank(computed.status) > severityRank(m.displayData.status) ? computed.status : m.displayData.status,
     },
   };
@@ -102,12 +128,16 @@ function severityRank(s: "healthy" | "warning" | "critical"): number {
   return s === "critical" ? 2 : s === "warning" ? 1 : 0;
 }
 
-// Override metric names from cert table when they leak internal segment codes
-// (H1/K1/M2/etc). Eksekutif tidak mengerti kode — rename ke natural language.
-// Cert table di Supabase tidak diubah; ini purely UI-layer rename.
+// Override metric names from cert table for clarity. Cert table di Supabase
+// tidak diubah; ini purely UI-layer rename agar audiens C-level paham.
+// Tujuan: hilangkan kode internal, jargon "snapshot/v1.4", dan formula dari title.
 const METRIC_NAME_OVERRIDES: Record<string, string> = {
-  "M-TREAT-003": "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, dengan HP valid)",
-  "M-COMPL-005": "Persentase Status Patuh Aktif (Snapshot)",
+  "M-COMPL-001": "Total Kendaraan",
+  "M-COMPL-005": "Persentase Pembayar Tepat Waktu",
+  "M-REV-003": "Target Pendapatan Skenario Realistis",
+  "M-REV-004": "Target Pendapatan Skenario Optimis",
+  "M-TREAT-001": "Persentase Kendaraan dengan Nomor Handphone Valid",
+  "M-TREAT-003": "Target Kampanye Gelombang Pertama",
 };
 
 /** Build a MetricDefinition from a cert row + lookup display data. */
@@ -226,18 +256,18 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
   const STATIC_PKB_SUMMARY: AISummaryData = {
     agentName: "Galen PKB Pilot Agent",
     timestamp: new Date().toISOString(),
-    paragraph: "Snapshot 2026-05-05 mencatat 427,977 kendaraan terdaftar di Palangka Raya. Tingkat tunggakan 74.77% — di atas ekspektasi framework Piramida Kepatuhan Pajak (60-65%), didorong segmen Tidak Patuh Kronis 32.05% atau 137,186 kendaraan. Hanya 25.23% berstatus Patuh Aktif, di bawah ekspektasi 40%. Total potensi PKB Rp 164.24 triliun; estimasi konservatif kampanye Rp 23.54 miliar (14% potensi). 66,696 kendaraan quick-win (Baru Lewat Tempo + Mulai Mengabaikan, dengan HP valid) siap untuk gelombang pertama via WhatsApp. 73.46% kendaraan reachable via kanal digital.",
-    boldParts: ["427,977 kendaraan", "74.77%", "60-65%", "Tidak Patuh Kronis", "32.05%", "137,186 kendaraan", "Patuh Aktif", "25.23%", "40%", "Rp 164.24 triliun", "Rp 23.54 miliar", "66,696", "73.46%"],
+    paragraph: "Per 2026-05-05, ada 427.977 kendaraan terdaftar di Palangka Raya. 74,77% di antaranya menunggak — lebih tinggi dari target framework Piramida Kepatuhan Pajak (60-65%). Pendorong utama: kelompok Tidak Patuh Kronis sebesar 32,05% (137.186 kendaraan), sementara Patuh Aktif hanya 25,23% (target 40%). Total potensi PKB Rp 164,24 miliar; perkiraan realistis kampanye gelombang pertama Rp 23,54 miliar (14% dari potensi). 66.696 kendaraan siap dikampanyekan via WhatsApp — kelompok Baru Lewat Tempo & Mulai Mengabaikan yang punya nomor handphone, peluang sukses tertinggi. Secara umum, 73,46% kendaraan bisa dijangkau lewat saluran digital.",
+    boldParts: ["427.977 kendaraan", "74,77%", "60-65%", "Tidak Patuh Kronis", "32,05%", "137.186 kendaraan", "Patuh Aktif", "25,23%", "40%", "Rp 164,24 miliar", "Rp 23,54 miliar", "66.696", "73,46%"],
     positiveChanges: [
-      "Classifier coverage 100% — 0 kendaraan unclassified",
-      "Total potensi pendapatan kampanye konservatif Rp 23.54 miliar (1 gelombang)",
-      "66,696 quick-win targets siap dengan kanal digital",
+      "Klasifikasi data 100% lengkap — semua kendaraan sudah terkategori",
+      "Perkiraan pendapatan kampanye gelombang pertama Rp 23,54 miliar",
+      "66.696 kendaraan siap dikampanyekan lewat WhatsApp",
     ],
     negativeChanges: [
-      "Tingkat tunggakan 74.77% — di atas target framework (60-65%)",
-      "Tidak Patuh Kronis + Kendaraan Hantu dominan 50.35% (215,510 kendaraan) — beban historis besar",
-      "Kepatuhan Patuh Aktif hanya 25.23% — di bawah ekspektasi framework 40%",
-      "26.54% kendaraan tanpa HP — butuh kanal offline (surat / RT-RW)",
+      "Tingkat tunggakan 74,77% — di atas target framework Piramida Kepatuhan Pajak (60-65%)",
+      "Tidak Patuh Kronis + Kendaraan Hantu menguasai 50,35% (215.510 kendaraan) — beban historis besar",
+      "Patuh Aktif hanya 25,23% — di bawah target framework 40%",
+      "26,54% kendaraan tanpa nomor handphone — butuh surat atau kunjungan tim SAMSAT/RT-RW",
     ],
     topRisers: [
       { metricId: "M-REV-001", name: "Total Potensi PKB", changePercent: 0 },
@@ -262,19 +292,19 @@ export const MetricsProvider = ({ children }: { children: ReactNode }) => {
       confidence: 95,
       value: "74.77%",
       changePercent: 0,
-      why: "Tingkat tunggakan 74.77% melewati ekspektasi framework Piramida Kepatuhan Pajak (60-65%). Segmen Tidak Patuh Kronis (32.05%) menyumbang beban terbesar — denda historis 2-4× pokok pajak. Pertimbangkan regulasi amnesti penuh denda 90 hari diikuti razia pasca-amnesti.",
+      why: "Tingkat tunggakan 74,77% melewati target framework Piramida Kepatuhan Pajak (60-65%). Kelompok Tidak Patuh Kronis (32,05%) jadi beban terbesar — denda akumulasi sudah 2-4 kali pokok pajak. Pertimbangkan amnesti penuh denda 90 hari diikuti razia pasca-amnesti, tapi pantau kelompok Patuh Aktif agar tidak ikut menunda.",
       relatedMetricPath: ["M-COMPL-001", "M-COMPL-004"],
       accentType: "warning",
     },
     {
       id: "sug-2",
       metricId: "M-TREAT-003",
-      metricName: "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, HP valid)",
+      metricName: "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, nomor handphone valid)",
       domain: "Treatment",
       confidence: 90,
       value: "66,696",
       changePercent: 0,
-      why: "66,696 kendaraan di Baru Lewat Tempo + Mulai Mengabaikan dengan HP valid + estimasi PKB > median = ROI tertinggi gelombang pertama. Denda masih kecil, kanal digital (WhatsApp 73.46% reachable) tersedia. Eksekusi 3-pesan campaign dalam 6 minggu.",
+      why: "66.696 kendaraan di kelompok Baru Lewat Tempo + Mulai Mengabaikan, punya nomor handphone, dan estimasi PKB di atas rata-rata — paling cepat memberi hasil. Denda masih kecil, bisa dijangkau lewat WhatsApp (73,46% kendaraan terjangkau digital). Rekomendasi: kampanye 3 pesan WhatsApp dalam 6 minggu, batas waktu 90 hari.",
       relatedMetricPath: ["M-TREAT-001", "M-COMPL-001"],
       accentType: "info",
     },
