@@ -30,10 +30,10 @@ const DOMAIN_COLORS: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  result: 'Result metric',
-  actionable: 'Actionable metric',
-  observational: 'Observational',
-  experimental: 'Experimental',
+  result: 'Hasil bisnis',
+  actionable: 'Bisa langsung ditindaklanjuti',
+  observational: 'Pengamatan',
+  experimental: 'Skenario eksperimental',
 };
 
 const highlightText = (text: string, boldParts: string[]) => {
@@ -130,9 +130,16 @@ const MetricCard = ({ metric, onUnfollow, onViewDetails }: MetricCardProps) => {
       </div>
 
       {/* Metric name */}
-      <h3 className="text-[14px] font-medium text-foreground mb-2 pr-20 leading-tight">
+      <h3 className="text-[14px] font-medium text-foreground mb-1 pr-20 leading-tight">
         {metric.name}
       </h3>
+
+      {/* Subtitle: plain "apa yang diukur" caption (Palantir-style data product) */}
+      {displayData.subtitle && (
+        <p className="text-[11px] text-muted-foreground/70 mb-2 leading-snug pr-20">
+          {displayData.subtitle}
+        </p>
+      )}
 
       {/* Value + change */}
       <div className="flex items-baseline gap-2 mb-1">

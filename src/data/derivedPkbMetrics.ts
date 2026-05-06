@@ -186,9 +186,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-001",
-    name: "Prioritas Pendapatan per Kelompok Kepatuhan",
+    name: "Pendapatan Realistis Total (Tertimbang Peluang Sukses)",
     description:
-      `Estimasi pendapatan realistis per kelompok kepatuhan setelah memperhitungkan tingkat keberhasilan tagih. "${N.K1}" hanya 8% kendaraan tapi penyumbang pendapatan terbesar — peluang sukses 60%. "${N.M2}" 33% kendaraan tapi peluang sukses hanya 15%. Bantu prioritaskan kelompok yang memberi hasil tercepat.`,
+      `Total pendapatan yang realistis bisa ditagih dari semua kelompok kepatuhan setelah ditimbang peluang sukses tagih per kelompok. "${N.K1}" hanya 8% kendaraan tapi penyumbang pendapatan terbesar (peluang sukses 60%). "${N.M2}" 33% kendaraan tapi peluang sukses hanya 15%. Bantu prioritaskan kelompok yang memberi hasil tercepat.`,
     measure: "yield_weighted_revenue",
     domain: "Revenue",
     metricType: "result",
@@ -196,15 +196,16 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "Palangka Raya · estimasi realistis",
-      comparisonLabel: `Prioritas: ${N.K1} & ${N.O1} dulu`,
+      filterContext: "Total dari semua kelompok kepatuhan",
+      subtitle: "Total pendapatan realistis setelah memperhitungkan peluang sukses tagih",
+      comparisonLabel: `Top kontributor: ${N.K1} & ${N.O1}`,
       currentValue: fmtIDRb(totalYield),
       changePercent: 0,
       changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_SEGMENT_QUALITY,
       insight: {
-        text: `"${N.K1}" sumbang ${fmtIDRb(yieldPerSeg.K1)} (${Math.round((yieldPerSeg.K1 / totalYield) * 100)}% dari pendapatan realistis) padahal hanya 8% kendaraan. "${N.M2}" hanya ${fmtIDRb(yieldPerSeg.M2)} dari 32% kendaraan — peluang sukses rendah. Fokus utama: tagih "${N.K1}" & "${N.O1}" dulu untuk hasil cepat.`,
+        text: `"${N.K1}" sumbang ${fmtIDRb(yieldPerSeg.K1)} (${Math.round((yieldPerSeg.K1 / totalYield) * 100)}% dari total) padahal hanya 8% kendaraan — paling produktif. "${N.M2}" hanya ${fmtIDRb(yieldPerSeg.M2)} dari 32% kendaraan karena peluang sukses rendah. Fokus utama: tagih "${N.K1}" & "${N.O1}" dulu untuk hasil cepat.`,
         boldParts: [fmtIDRb(yieldPerSeg.K1), `${Math.round((yieldPerSeg.K1 / totalYield) * 100)}%`, fmtIDRb(yieldPerSeg.M2), N.K1, N.O1],
       },
     },
@@ -225,6 +226,7 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     isFollowing: true,
     displayData: {
       filterContext: `${N.K1} + ${N.O1} · punya HP · 90 hari`,
+      subtitle: "Pendapatan yang realistis bisa ditagih dalam 90 hari pertama",
       comparisonLabel: "vs total potensi Rp 164,24 triliun",
       currentValue: fmtIDRb(wave1Yield),
       changePercent: 0,
@@ -252,8 +254,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "Cakupan per kelompok kepatuhan",
-      comparisonLabel: "vs rata-rata 73,46%",
+      filterContext: "Cakupan HP dipecah per kelompok kepatuhan",
+      subtitle: "Persentase punya HP per kelompok — penentu strategi saluran",
+      comparisonLabel: "vs rata-rata keseluruhan 73,46%",
       currentValue: `${N.H1} ${PHONE_BY_SEG.H1}% · ${N.K1} ${PHONE_BY_SEG.K1}% · ${N.M2} ${PHONE_BY_SEG.M2}% · ${N.S2} ${PHONE_BY_SEG.S2}%`,
       changePercent: 0,
       changeAbsolute: "0",
@@ -280,8 +283,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: true,
     displayData: {
-      filterContext: "Distribusi aktual − target framework",
-      comparisonLabel: "Selisih dalam % poin",
+      filterContext: "Selisih distribusi aktual vs target",
+      subtitle: "Selisih distribusi tiap kelompok dari target framework — dalam persen poin",
+      comparisonLabel: "Selisih dalam persen poin",
       currentValue: `${N.H1} ${pyramidDeviation.H1.toFixed(2)}% · ${N.S2} +${pyramidDeviation.S2.toFixed(2)}%`,
       changePercent: pyramidDeviation.H1, // headline = Patuh Aktif deviation
       changeAbsolute: `${pyramidDeviation.H1.toFixed(2)}%`,
@@ -308,8 +312,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "tahun · per-segmen",
-      comparisonLabel: "vs aggregate 13 tahun",
+      filterContext: "Rata-rata umur dipecah per kelompok kepatuhan",
+      subtitle: "Rata-rata umur kendaraan per kelompok kepatuhan",
+      comparisonLabel: "vs rata-rata keseluruhan 13 tahun",
       currentValue: `${N.S2} ${AGE_BY_SEG.S2}thn · ${N.M2} ${AGE_BY_SEG.M2}thn · ${N.K1} ${AGE_BY_SEG.K1}thn`,
       changePercent: 0,
       changeAbsolute: "0",
@@ -336,7 +341,8 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: `${N.M2} + ${N.S2} · selisih dari yang realistis tertagih`,
+      filterContext: `${N.M2} + ${N.S2} · pendapatan struktural sulit ditagih`,
+      subtitle: "Pendapatan yang sulit ditagih tanpa amnesti & pembersihan registrasi",
       comparisonLabel: "vs total potensi Rp 164,24 triliun",
       currentValue: fmtIDRb(strandedRevenue),
       changePercent: 0,
@@ -354,9 +360,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-007",
-    name: `Sinyal Erosi Kepatuhan (${N.H1} & ${N.K1})`,
+    name: `Risiko Pembayar Patuh Ikut Menunda`,
     description:
-      `Persentase kendaraan yang masih bayar tepat waktu atau baru sedikit telat ("${N.H1}" + "${N.K1}"). Batas waspada minimal 30% — jika program amnesti aktif membuat angka ini turun ke bawah 30%, artinya pembayar yang patuh mulai ikut menunda karena merasa "yang telat justru dimaafkan". Sinyal penting untuk hentikan amnesti generik.`,
+      `Persentase kendaraan yang masih bayar tepat waktu atau baru sedikit telat ("${N.H1}" + "${N.K1}"). Batas waspada minimal 30% — jika program amnesti aktif membuat angka ini turun di bawah 30%, artinya pembayar yang patuh mulai ikut menunda karena merasa "yang telat justru dimaafkan". Sinyal penting untuk hentikan amnesti generik.`,
     measure: "moral_hazard_h1k1_share",
     domain: "Compliance",
     metricType: "result",
@@ -365,7 +371,8 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     isFollowing: true,
     displayData: {
       filterContext: `${N.H1} + ${N.K1} · batas waspada 30%`,
-      comparisonLabel: "Batas waspada minimal",
+      subtitle: "Persentase pembayar patuh — batas waspada minimal 30%",
+      comparisonLabel: "Batas waspada minimal 30%",
       currentValue: `${moralHazardPct.toFixed(2)}%`,
       changePercent: moralHazardPct - 30, // delta from threshold
       changeAbsolute: `${(moralHazardPct - 30).toFixed(2)}% di atas batas 30%`,
@@ -392,7 +399,8 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "up_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "Cakupan strategi penanganan",
+      filterContext: "Cakupan strategi penanganan per kelompok",
+      subtitle: "Kelompok kepatuhan yang sudah punya strategi penanganan terdefinisi",
       comparisonLabel: "Kesiapan operasional",
       currentValue: `${treatmentCoverage}%`,
       changePercent: 0,
@@ -420,7 +428,8 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "Estimasi sebelum kampanye",
+      filterContext: "Estimasi sebelum kampanye dimulai",
+      subtitle: "Estimasi biaya untuk menagih per rupiah yang berhasil masuk",
       comparisonLabel: "Target ideal di bawah 8%",
       currentValue: `${costToCollectRatio.toFixed(2)}%`,
       changePercent: costToCollectRatio - 8,
@@ -448,7 +457,8 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     direction: "down_is_good",
     isFollowing: false,
     displayData: {
-      filterContext: "Rata-rata · disesuaikan cakupan HP",
+      filterContext: "Rata-rata biaya per kendaraan dijangkau",
+      subtitle: "Rata-rata biaya menjangkau satu kendaraan (disesuaikan cakupan HP)",
       comparisonLabel: "vs WhatsApp saja Rp 50",
       currentValue: fmtIDR(blendedCostPerVehicle),
       changePercent: 0,
@@ -561,8 +571,9 @@ function buildPerSegmentMetrics(): MetricDefinition[] {
       direction,
       isFollowing,
       displayData: {
-        filterContext: `${meta.name} · target ${FW[code as keyof typeof FW]}%`,
-        comparisonLabel: `vs target framework Piramida Kepatuhan Pajak (${FW[code as keyof typeof FW]}%)`,
+        filterContext: `${meta.name} · target framework ${FW[code as keyof typeof FW]}%`,
+        subtitle: meta.description,
+        comparisonLabel: `Target framework Piramida Kepatuhan Pajak: ${FW[code as keyof typeof FW]}%`,
         currentValue: `${seg.n.toLocaleString("id-ID")} (${seg.pct.toFixed(2)}%)`,
         changePercent: Number(dev.toFixed(2)),
         changeAbsolute: `${devSign}${dev.toFixed(2)}% poin vs target`,

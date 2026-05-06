@@ -102,12 +102,15 @@ function severityRank(s: "healthy" | "warning" | "critical"): number {
   return s === "critical" ? 2 : s === "warning" ? 1 : 0;
 }
 
-// Override metric names from cert table when they leak internal segment codes
-// (H1/K1/M2/etc). Eksekutif tidak mengerti kode — rename ke natural language.
-// Cert table di Supabase tidak diubah; ini purely UI-layer rename.
+// Override metric names from cert table for clarity. Cert table di Supabase
+// tidak diubah; ini purely UI-layer rename agar audiens C-level paham.
+// Tujuan: hilangkan kode internal, jargon "snapshot/v1.4", dan formula dari title.
 const METRIC_NAME_OVERRIDES: Record<string, string> = {
-  "M-TREAT-003": "Jumlah Target Quick Win (Baru Lewat Tempo + Mulai Mengabaikan, dengan HP valid)",
-  "M-COMPL-005": "Persentase Status Patuh Aktif (Snapshot)",
+  "M-COMPL-001": "Total Kendaraan Terdaftar di Pilot",
+  "M-COMPL-005": "Persentase Pembayar Tepat Waktu",
+  "M-REV-003": "Target Pendapatan Skenario Realistis",
+  "M-REV-004": "Target Pendapatan Skenario Optimis",
+  "M-TREAT-003": "Target Kampanye Gelombang Pertama",
 };
 
 /** Build a MetricDefinition from a cert row + lookup display data. */
