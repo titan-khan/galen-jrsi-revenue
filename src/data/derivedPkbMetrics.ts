@@ -360,9 +360,9 @@ export const derivedPkbMetrics: MetricDefinition[] = [
   {
     ...BASE,
     id: "M-DERIV-007",
-    name: `Risiko Pembayar Patuh Ikut Menunda`,
+    name: `Persentase Pembayar Patuh & Hampir Telat`,
     description:
-      `Persentase kendaraan yang masih bayar tepat waktu atau baru sedikit telat ("${N.H1}" + "${N.K1}"). Batas waspada minimal 30% — jika program amnesti aktif membuat angka ini turun di bawah 30%, artinya pembayar yang patuh mulai ikut menunda karena merasa "yang telat justru dimaafkan". Sinyal penting untuk hentikan amnesti generik.`,
+      `Persentase kendaraan yang masih bayar tepat waktu atau baru sedikit telat 1-90 hari (gabungan "${N.H1}" + "${N.K1}"). Batas waspada minimal 30% — jika angka ini turun di bawah 30% saat program amnesti aktif, artinya pembayar yang patuh mulai ikut menunda karena merasa "yang telat justru dimaafkan". Pantau mingguan saat amnesti berjalan.`,
     measure: "moral_hazard_h1k1_share",
     domain: "Compliance",
     metricType: "result",
@@ -371,7 +371,7 @@ export const derivedPkbMetrics: MetricDefinition[] = [
     isFollowing: true,
     displayData: {
       filterContext: `${N.H1} + ${N.K1} · batas waspada 30%`,
-      subtitle: "Persentase pembayar patuh — batas waspada minimal 30%",
+      subtitle: "Gabungan pembayar tepat waktu + yang baru telat 1-90 hari",
       comparisonLabel: "Batas waspada minimal 30%",
       currentValue: `${moralHazardPct.toFixed(2)}%`,
       changePercent: moralHazardPct - 30, // delta from threshold

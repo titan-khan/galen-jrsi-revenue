@@ -106,7 +106,7 @@ function severityRank(s: "healthy" | "warning" | "critical"): number {
 // tidak diubah; ini purely UI-layer rename agar audiens C-level paham.
 // Tujuan: hilangkan kode internal, jargon "snapshot/v1.4", dan formula dari title.
 const METRIC_NAME_OVERRIDES: Record<string, string> = {
-  "M-COMPL-001": "Total Kendaraan Terdaftar di Pilot",
+  "M-COMPL-001": "Total Kendaraan",
   "M-COMPL-005": "Persentase Pembayar Tepat Waktu",
   "M-REV-003": "Target Pendapatan Skenario Realistis",
   "M-REV-004": "Target Pendapatan Skenario Optimis",

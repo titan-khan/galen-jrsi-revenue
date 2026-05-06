@@ -44,6 +44,8 @@ const highlightText = (text: string, boldParts: string[]) => {
   return result;
 };
 
+const SHOW_CERT_BADGES = import.meta.env.VITE_SHOW_CERT_BADGES === "true";
+
 const MetricCard = ({ metric, onUnfollow, onViewDetails }: MetricCardProps) => {
   const [isHoveringFollow, setIsHoveringFollow] = useState(false);
   const { displayData } = metric;
@@ -116,7 +118,7 @@ const MetricCard = ({ metric, onUnfollow, onViewDetails }: MetricCardProps) => {
         </DropdownMenu>
       </div>
 
-      {/* Domain + cert badges */}
+      {/* Domain + (optional) cert badges */}
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         {metric.domain && (
           <Badge
@@ -126,7 +128,7 @@ const MetricCard = ({ metric, onUnfollow, onViewDetails }: MetricCardProps) => {
             {metric.domain}
           </Badge>
         )}
-        {cert && <MetricCertBadge cert={cert} size="sm" />}
+        {SHOW_CERT_BADGES && cert && <MetricCertBadge cert={cert} size="sm" />}
       </div>
 
       {/* Metric name */}

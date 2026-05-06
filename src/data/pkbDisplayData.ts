@@ -106,19 +106,19 @@ function defaults(over: Partial<DisplayPartial> = {}): DisplayPartial {
 export const pkbDisplayData: Record<string, DisplayPartial> = {
   // ─── Compliance (8) ──────────────────────────────────────────────────────
   "M-COMPL-001": defaults({
-    description: "Total seluruh kendaraan terdaftar yang masuk dalam pilot Palangka Raya, tersebar di 7 kelompok kepatuhan (Patuh Aktif, Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif, Tidak Patuh Kronis, Belum Terdaftar, Kendaraan Hantu).",
+    description: "Total seluruh kendaraan terdaftar di pilot Palangka Raya, tersebar di 7 kelompok kepatuhan: Patuh Aktif, Baru Lewat Tempo, Mulai Mengabaikan, Tidak Patuh Pasif, Tidak Patuh Kronis, Belum Terdaftar, dan Kendaraan Hantu.",
     metricType: "result",
     isFollowing: true,
     direction: "neutral",
     displayData: {
       filterContext: "Palangka Raya · semua kendaraan terdaftar",
-      subtitle: "Populasi total — lihat 7 kartu kelompok di bawah untuk pecahan per kelompok",
-      comparisonLabel: "Jumlah kendaraan ter-klasifikasi",
+      subtitle: "Total kendaraan terdaftar di pilot Palangka Raya",
+      comparisonLabel: "Tersebar di 7 kelompok kepatuhan",
       currentValue: fmtCount(TOTAL_KENDARAAN),
       changePercent: 0, changeAbsolute: "0",
       status: "healthy",
       sparklineData: SPARK_TOTAL_KENDARAAN,
-      insight: { text: "Kelompok terbesar: Tidak Patuh Kronis 137.186 kendaraan (32%). Kelompok terkecil yang positif: Patuh Aktif hanya 25%, di bawah target 40%.", boldParts: ["Tidak Patuh Kronis", "137.186 kendaraan", "32%", "Patuh Aktif", "25%", "40%"] },
+      insight: { text: "Kelompok terbesar: Tidak Patuh Kronis 137.186 kendaraan (32%). Patuh Aktif hanya 25% (107.960 kendaraan), di bawah target 40%.", boldParts: ["Tidak Patuh Kronis", "137.186 kendaraan", "32%", "Patuh Aktif", "25%", "40%"] },
     },
   }),
   "M-COMPL-002": defaults({
