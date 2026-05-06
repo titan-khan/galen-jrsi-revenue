@@ -1,17 +1,16 @@
 // =============================================================================
 // INTENT DETECTOR — Maps user messages to DB query categories
-// Uses keyword matching to decide which tables to query
+// PKB compliance pilot: bahasa Indonesia + English keyword matching
 // =============================================================================
 
 export type IntentCategory =
+  | 'compliance'
   | 'revenue'
-  | 'nps'
-  | 'operations'
+  | 'treatment'
+  | 'geography'
   | 'fleet'
-  | 'funnel'
-  | 'agents'
-  | 'general'
-  | 'metadata';
+  | 'metadata'
+  | 'general';
 
 export interface DetectedIntent {
   categories: IntentCategory[];
@@ -25,73 +24,74 @@ interface IntentRule {
 }
 
 const INTENT_RULES: Record<IntentCategory, IntentRule> = {
+  compliance: {
+    keywords: [
+      'kepatuhan', 'segmen', 'patuh', 'tunggakan', 'piramida', 'pyramid',
+      'compliance', 'h1', 'k1', 'm1', 'm2', 's1', 's2', 'o1',
+      'patuh aktif', 'baru lewat', 'mengabaikan', 'tidak patuh',
+      'belum terdaftar', 'kendaraan hantu', 'kronis', 'pasif',
+      'detractor', 'distribusi', 'profil',
+    ],
+    weight: 1.0,
+  },
   revenue: {
     keywords: [
-      'revenue', 'sales', 'income', 'booking', 'ticket revenue', 'money',
-      'earnings', 'gross', 'financial', 'price', 'fare', 'gmv', 'arpu',
-      'transaction', 'order', 'payment',
+      'pendapatan', 'revenue', 'pkb', 'pajak', 'tertagih', 'realisasi',
+      'arrears', 'idr', 'rupiah', 'target', 'gap', 'pokok', 'denda',
+      'swdkllj', 'iuran', 'potensi', 'koleksi', 'tagih', 'tagihan',
+      'transaksi', 'bayar', 'bayaran', 'collection',
     ],
     weight: 1.0,
   },
-  nps: {
+  treatment: {
     keywords: [
-      'nps', 'net promoter', 'satisfaction', 'promoter', 'detractor',
-      'passive', 'survey', 'feedback', 'complaint', 'loyalty', 'csat',
-      'customer score', 'customer sentiment',
+      'treatment', 'tindakan', 'aksi', 'amnesti', 'kebijakan', 'intervensi',
+      'kanal', 'whatsapp', 'surat', 'rt-rw', 'samsat', 'raci', 'sadar',
+      'program', 'gelombang', 'rekomendasi', 'strategi', 'eksekusi',
+      'wave', 'prioritas',
     ],
-    weight: 1.0,
+    weight: 0.9,
   },
-  operations: {
+  geography: {
     keywords: [
-      'otp', 'on-time', 'on time', 'delay', 'trip', 'schedule', 'punctual',
-      'late', 'arrival', 'departure', 'sla', 'operational', 'performance',
-      'route performance', 'trip status',
+      'kabupaten', 'kota', 'kalteng', 'palangka raya', 'kalimantan',
+      'wilayah', 'tipologi', 'urban', 'hub', 'hinterland',
+      'kecamatan', 'kelurahan', 'upt', 'cabang', 'lokasi', 'daerah',
     ],
-    weight: 1.0,
+    weight: 0.9,
   },
   fleet: {
     keywords: [
-      'fleet', 'vehicle', 'bus', 'driver', 'crew', 'maintenance', 'capacity',
-      'utilization', 'seat', 'vehicle revenue', 'opex', 'capex',
-    ],
-    weight: 0.9,
-  },
-  funnel: {
-    keywords: [
-      'funnel', 'conversion', 'drop-off', 'dropoff', 'checkout', 'abandon',
-      'session', 'booking flow', 'channel', 'homepage',
-    ],
-    weight: 0.9,
-  },
-  agents: {
-    keywords: [
-      'agent', 'recommendation', 'finding', 'skill', 'run', 'analysis result',
-      'specialist', 'pending action', 'trust score', 'autonomy',
+      'kendaraan', 'motor', 'mobil', 'jenken', 'jenis', 'merek', 'merk',
+      'bahan bakar', 'tahun', 'usia', 'cc', 'tipe', 'roda', 'truk',
+      'sepeda motor',
     ],
     weight: 0.8,
   },
-  general: {
+  metadata: {
     keywords: [
-      'summary', 'overview', 'brief', 'dashboard', 'status', 'how are we',
-      'this week', 'today', 'what happened', 'report', 'update',
+      'definisi', 'definition', 'formula', 'metric', 'metrik', 'sertifikasi',
+      'bronze', 'silver', 'gold', 'governance', 'apa itu', 'arti',
+      'data dictionary', 'lineage', 'confidence', 'sumber', 'source',
+      'kolom', 'tabel', 'schema',
     ],
     weight: 0.6,
   },
-  metadata: {
+  general: {
     keywords: [
-      'what is', 'define', 'meaning', 'dictionary', 'explain', 'definition',
-      'metric definition', 'what does', 'how is .* calculated',
+      'ringkas', 'summary', 'overview', 'briefing', 'status', 'dashboard',
+      'update', 'kondisi', 'gambaran', 'rangkum', 'sekarang', 'today',
+      'minggu ini', 'bulan ini',
     ],
     weight: 0.5,
   },
 };
 
-const SCORE_THRESHOLD = 0.12;
+const SCORE_THRESHOLD = 0.08;
 const MAX_CATEGORIES = 3;
 
 /**
  * Detect which DB query categories are relevant for a user message.
- * Returns up to 3 categories sorted by relevance score.
  */
 export function detectIntent(message: string): DetectedIntent {
   const lower = message.toLowerCase();
@@ -103,11 +103,11 @@ export function detectIntent(message: string): DetectedIntent {
     let matches = 0;
 
     for (const keyword of rule.keywords) {
-      // Support multi-word keywords
-      if (keyword.includes(' ')) {
-        if (lower.includes(keyword)) matches++;
+      const kw = keyword.toLowerCase();
+      if (kw.includes(' ') || kw.includes('-')) {
+        if (lower.includes(kw)) matches++;
       } else {
-        if (tokens.includes(keyword)) matches++;
+        if (tokens.includes(kw)) matches++;
       }
     }
 
@@ -117,23 +117,18 @@ export function detectIntent(message: string): DetectedIntent {
     }
   }
 
-  // Sort by score descending
   scores.sort((a, b) => b.score - a.score);
 
-  // Filter by threshold, cap at MAX_CATEGORIES
   let categories = scores
     .filter((s) => s.score >= SCORE_THRESHOLD)
     .slice(0, MAX_CATEGORIES)
     .map((s) => s.category);
 
-  // Default to 'general' if nothing matched
   if (categories.length === 0) {
     categories = ['general'];
   }
 
   const topScore = scores.length > 0 ? scores[0].score : 0;
-
-  // Extract @mentions
   const mentionedEntities = extractMentions(message);
 
   return {
@@ -145,7 +140,7 @@ export function detectIntent(message: string): DetectedIntent {
 
 /**
  * Extract @mention references from message text.
- * Uses a greedy regex that allows multi-word names (stops at double-space, newline, or punctuation after a word boundary).
+ * Greedy regex; allows multi-word names ending at double-space, newline, or punctuation.
  */
 function extractMentions(content: string): string[] {
   const mentionRegex = /@([\w]+(?:\s[\w]+)*)(?=\s{2,}|$|@|\.|,|!|\?|\n)/g;

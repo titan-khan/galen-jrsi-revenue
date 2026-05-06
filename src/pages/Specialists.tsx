@@ -119,7 +119,7 @@ const Specialists = () => {
       <div className="px-6 pt-6 pb-5 border-b border-border bg-background">
         <h1 className="text-xl font-semibold text-foreground mb-1">Spesialis</h1>
         <p className="text-[13px] text-muted-foreground/70">
-          Agen AI yang memantau operasi keselamatan jalan dan santunan 24/7
+          Agen AI yang memantau kepatuhan PKB, recovery revenue, dan eksekusi treatment 24/7
         </p>
       </div>
 

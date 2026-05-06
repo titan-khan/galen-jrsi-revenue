@@ -12,7 +12,14 @@ interface BrowseMetricsTableProps {
   onViewDetails?: (metricId: string) => void;
 }
 
-const DOMAIN_ORDER: MetricDomain[] = ['Accident Overview', 'Financial', 'Vehicle', 'TRL Risk', 'Cause Analysis', 'Data Quality', 'Time Analysis', 'Revenue', 'Cost', 'Fee', 'Margin', 'Operational', 'Performance'];
+const DOMAIN_ORDER: MetricDomain[] = [
+  // PKB pilot domains (primary, MECE) — shown first
+  'Compliance', 'Revenue', 'Treatment',
+  // Legacy / generic
+  'Cost', 'Fee', 'Margin', 'Operational', 'Performance',
+  // Legacy JRSI
+  'Accident Overview', 'Financial', 'Vehicle', 'TRL Risk', 'Cause Analysis', 'Data Quality', 'Time Analysis',
+];
 
 const BrowseMetricsTable = React.forwardRef<HTMLDivElement, BrowseMetricsTableProps>(
   ({ onViewDetails }, ref) => {

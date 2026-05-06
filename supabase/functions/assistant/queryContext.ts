@@ -1,7 +1,7 @@
 // =============================================================================
 // QUERY CONTEXT RESOLVER — Declarative DB queries from query specs
-// Supports adaptive limits: runs lightweight COUNT(*) pre-queries to size
-// fetches dynamically based on actual data volume.
+// PKB pilot domain. Supports cross-schema queries via .schema('gold' | 'meta' |
+// 'ref' | 'kb') and computes PKB-specific summary aggregations.
 // =============================================================================
 
 import type { QueryContextSpec, AdaptiveConfig } from './querySpecs.ts';
@@ -19,39 +19,46 @@ interface QueryContextInput {
 }
 
 // ---------------------------------------------------------------------------
+// SCHEMA-AWARE QUERY BUILDERS
+// ---------------------------------------------------------------------------
+
+function fromSpec(supabaseClient: any, spec: QueryContextSpec) {
+  if (spec.schema && spec.schema !== 'public') {
+    return supabaseClient.schema(spec.schema as any).from(spec.table);
+  }
+  return supabaseClient.from(spec.table);
+}
+
+// Returns a stable key under which the spec's data is stored on the result obj
+function dataKeyFor(spec: QueryContextSpec): string {
+  return spec.schema && spec.schema !== 'public'
+    ? `${spec.schema}.${spec.table}`
+    : spec.table;
+}
+
+// ---------------------------------------------------------------------------
 // ADAPTIVE DATA DISCOVERY
-// Runs COUNT(*) pre-queries in parallel to discover actual data volume,
-// then computes smart limits based on cardinality.
 // ---------------------------------------------------------------------------
 
 interface DataVolume {
-  table: string;
+  key: string;
   count: number;
 }
 
-/**
- * Discover data volume for tables that use adaptiveConfig.
- * Runs lightweight COUNT(*) queries in parallel with the same filters
- * as the full query (so we count exactly what we'd fetch).
- * Returns within timeoutMs or falls back to empty (use defaults).
- */
 async function discoverDataVolume(
   supabaseClient: any,
   specs: QueryContextSpec[],
   inputContext: QueryContextInput,
-  timeoutMs = 200,
+  timeoutMs = 250,
 ): Promise<DataVolume[]> {
-  // Only count tables that have adaptiveConfig
   const adaptiveSpecs = specs.filter((s) => s.adaptiveConfig);
   if (adaptiveSpecs.length === 0) return [];
 
   const countPromises = adaptiveSpecs.map(async (spec) => {
+    const key = dataKeyFor(spec);
     try {
-      let query = supabaseClient
-        .from(spec.table)
-        .select('*', { count: 'exact', head: true });
+      let query = fromSpec(supabaseClient, spec).select('*', { count: 'exact', head: true });
 
-      // Apply same filters as the full query
       if (spec.filters) {
         for (const filter of spec.filters) {
           const value = substituteVariable(filter.value, inputContext);
@@ -61,16 +68,15 @@ async function discoverDataVolume(
 
       const { count, error } = await query;
       if (error) {
-        console.warn(`[adaptive] COUNT failed for ${spec.table}:`, error.message);
-        return { table: spec.table, count: -1 }; // -1 = unknown, use default
+        console.warn(`[adaptive] COUNT failed for ${key}:`, error.message);
+        return { key, count: -1 };
       }
-      return { table: spec.table, count: count ?? -1 };
+      return { key, count: count ?? -1 };
     } catch {
-      return { table: spec.table, count: -1 };
+      return { key, count: -1 };
     }
   });
 
-  // Race: all counts vs timeout
   try {
     const result = await Promise.race([
       Promise.all(countPromises),
@@ -85,23 +91,8 @@ async function discoverDataVolume(
   }
 }
 
-/**
- * Compute the adaptive limit for a table based on its cardinality.
- * Decision logic:
- *   count ≤ maxLimit → fetch all (we want the complete picture for aggregation)
- *   count > maxLimit → cap at maxLimit
- *
- * Why fetch all within maxLimit?  Summary stats and monthly aggregations
- * need the *full* dataset to be accurate.  buildDbContextSection already
- * truncates what Claude sees (displayCap), so fetching more rows only
- * costs a bit of query time — it doesn't inflate the prompt.
- */
 function computeAdaptiveLimit(count: number, config: AdaptiveConfig): number {
-  if (count <= 0) {
-    // Unknown count or empty table — use maxLimit as safe default
-    return config.maxLimit;
-  }
-  // Fetch everything up to maxLimit; if table is larger, cap at maxLimit
+  if (count <= 0) return config.maxLimit;
   return Math.min(count, config.maxLimit);
 }
 
@@ -109,14 +100,6 @@ function computeAdaptiveLimit(count: number, config: AdaptiveConfig): number {
 // MAIN RESOLVER
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve all query context specs against the database.
- * Steps:
- * 1. Run lightweight COUNT(*) pre-queries for adaptive tables
- * 2. Compute smart limits based on actual data volume
- * 3. Execute full queries with computed limits
- * 4. Compute summary statistics from results
- */
 export async function resolveQueryContext(
   supabaseClient: any,
   specs: QueryContextSpec[] | null,
@@ -128,64 +111,53 @@ export async function resolveQueryContext(
     return data;
   }
 
-  // Always include business dictionary for context
-  try {
-    const { data: dictionary } = await supabaseClient
-      .from('metadata_business_dictionary')
-      .select('term, business_definition, agent_guidance')
-      .limit(20);
-    data.businessDictionary = dictionary || [];
-  } catch {
-    data.businessDictionary = [];
-  }
-
-  // --- Phase 1: Adaptive data discovery ---
+  // Adaptive volume discovery
   const volumes = await discoverDataVolume(supabaseClient, specs, inputContext);
-  const volumeMap = new Map(volumes.map((v) => [v.table, v.count]));
+  const volumeMap = new Map(volumes.map((v) => [v.key, v.count]));
 
-  // Log adaptive decisions
   if (volumes.length > 0) {
     const logParts = volumes
       .filter((v) => v.count >= 0)
       .map((v) => {
-        const spec = specs.find((s) => s.table === v.table);
+        const spec = specs.find((s) => dataKeyFor(s) === v.key);
         const limit = spec?.adaptiveConfig
           ? computeAdaptiveLimit(v.count, spec.adaptiveConfig)
           : '?';
-        return `${v.table}=${v.count}→${limit}`;
+        return `${v.key}=${v.count}→${limit}`;
       });
-    console.log(`[adaptive] Data volumes: ${logParts.join(', ')}`);
+    if (logParts.length > 0) {
+      console.log(`[adaptive] Data volumes: ${logParts.join(', ')}`);
+    }
   }
 
-  // --- Phase 2: Execute full queries with adaptive limits ---
+  // Execute queries in parallel
   const queryPromises = specs.map(async (spec) => {
+    const key = dataKeyFor(spec);
     try {
-      // Compute effective limit
-      let effectiveLimit = spec.limit; // fixed limit (dim/reference tables)
+      let effectiveLimit = spec.limit;
 
       if (spec.adaptiveConfig) {
-        const count = volumeMap.get(spec.table) ?? -1;
+        const count = volumeMap.get(key) ?? -1;
         effectiveLimit = computeAdaptiveLimit(count, spec.adaptiveConfig);
       }
 
       const result = await executeQuerySpec(supabaseClient, spec, inputContext, effectiveLimit);
-      return { table: spec.table, data: result };
+      return { key, data: result };
     } catch (error) {
-      console.error(`Error querying ${spec.table}:`, error);
-      return { table: spec.table, data: [], error: (error as Error).message };
+      console.error(`Error querying ${key}:`, error);
+      return { key, data: [], error: (error as Error).message };
     }
   });
 
   const results = await Promise.all(queryPromises);
 
   for (const result of results) {
-    data[result.table] = result.data;
+    data[result.key] = result.data;
     if ('error' in result) {
-      data[`${result.table}_error`] = result.error;
+      data[`${result.key}_error`] = result.error;
     }
   }
 
-  // --- Phase 3: Compute summary statistics ---
   computeSummaryStats(data);
 
   return data;
@@ -195,17 +167,8 @@ export async function resolveQueryContext(
 // QUERY EXECUTION
 // ---------------------------------------------------------------------------
 
-/**
- * PostgREST default page size — Supabase silently caps results to this
- * even when .limit() requests more.  We paginate with .range() to bypass.
- */
 const POSTGREST_PAGE_SIZE = 1000;
 
-/**
- * Execute a single query spec against Supabase.
- * Uses effectiveLimit (from adaptive discovery) instead of spec.limit.
- * Automatically paginates with .range() when limit > POSTGREST_PAGE_SIZE.
- */
 async function executeQuerySpec(
   supabaseClient: any,
   spec: QueryContextSpec,
@@ -215,9 +178,8 @@ async function executeQuerySpec(
   const selectClause = spec.select.includes('*') ? '*' : spec.select.join(', ');
   const limit = effectiveLimit && effectiveLimit > 0 ? effectiveLimit : undefined;
 
-  // Helper: build a base query with filters + ordering (no range/limit yet)
   function buildBaseQuery() {
-    let query = supabaseClient.from(spec.table).select(selectClause);
+    let query = fromSpec(supabaseClient, spec).select(selectClause);
     if (spec.filters) {
       for (const filter of spec.filters) {
         const value = substituteVariable(filter.value, inputContext);
@@ -230,16 +192,15 @@ async function executeQuerySpec(
     return query;
   }
 
-  // If limit fits in a single page, simple single fetch
   if (!limit || limit <= POSTGREST_PAGE_SIZE) {
     let query = buildBaseQuery();
     if (limit) query = query.limit(limit);
     const { data, error } = await query;
-    if (error) throw new Error(`Query failed on ${spec.table}: ${error.message}`);
+    if (error) throw new Error(`Query failed on ${dataKeyFor(spec)}: ${error.message}`);
     return data || [];
   }
 
-  // Paginate: fetch in chunks of POSTGREST_PAGE_SIZE using .range()
+  // Paginate via .range()
   const allRows: unknown[] = [];
   let offset = 0;
 
@@ -248,13 +209,12 @@ async function executeQuerySpec(
     const query = buildBaseQuery().range(offset, end);
     const { data, error } = await query;
 
-    if (error) throw new Error(`Query failed on ${spec.table} (page offset=${offset}): ${error.message}`);
-    if (!data || data.length === 0) break; // no more rows
+    if (error) throw new Error(`Query failed on ${dataKeyFor(spec)} (page offset=${offset}): ${error.message}`);
+    if (!data || data.length === 0) break;
 
     allRows.push(...data);
     offset += data.length;
 
-    // If we got fewer rows than the page size, there's no more data
     if (data.length < POSTGREST_PAGE_SIZE) break;
   }
 
@@ -265,9 +225,6 @@ async function executeQuerySpec(
 // HELPERS
 // ---------------------------------------------------------------------------
 
-/**
- * Substitute {{variable}} placeholders with actual values from input context.
- */
 function substituteVariable(
   value: string | number | boolean | string[],
   context: QueryContextInput
@@ -282,9 +239,6 @@ function substituteVariable(
   return value;
 }
 
-/**
- * Apply a filter operator to a Supabase query.
- */
 function applyFilter(
   query: any,
   field: string,
@@ -314,144 +268,142 @@ function applyFilter(
   }
 }
 
-/**
- * Compute summary statistics from query results.
- * These are appended to the context so the LLM has pre-calculated aggregates.
- *
- * IMPORTANT: Monthly aggregations ensure Claude sees the full time-series
- * picture even though buildDbContextSection truncates raw rows to displayCap.
- */
+// ---------------------------------------------------------------------------
+// PKB PYRAMID ORDER (for sorting compliance pyramid)
+// ---------------------------------------------------------------------------
+const PYRAMID_ORDER: Record<string, number> = {
+  'H1': 1, 'K1': 2, 'O1': 3, 'M1': 4, 'M2': 5, 'S1': 6, 'S2': 7,
+};
+
+// ---------------------------------------------------------------------------
+// SUMMARY STATS — PKB DOMAIN
+// ---------------------------------------------------------------------------
+
 function computeSummaryStats(data: Record<string, unknown>): void {
-  // ---- Revenue stats ----
-  const revenueData = data['fact_revenue'] as {
-    gross_value_amount?: number;
-    booking_datetime?: string;
-    origin_city?: string;
-    destination_city?: string;
-  }[] | undefined;
+  // ---- Compliance pyramid (registry_enriched) ----
+  const registry = data['gold.registry_enriched'] as Array<{
+    segmen_kepatuhan?: string;
+    segmen_nama?: string;
+    durasi_tunggakan_days?: number;
+    has_phone?: boolean;
+    has_payment_history?: boolean;
+    est_pkb_per_kendaraan?: number;
+    kabupaten_id?: number;
+  }> | undefined;
 
-  if (Array.isArray(revenueData) && revenueData.length > 0) {
-    data.totalRevenue = revenueData.reduce((sum, r) => sum + (r.gross_value_amount || 0), 0);
-    data.transactionCount = revenueData.length;
+  if (Array.isArray(registry) && registry.length > 0) {
+    const total = registry.length;
 
-    // Monthly revenue aggregation — gives Claude the full time-series
-    const revenueByMonth = new Map<string, { revenue: number; count: number }>();
-    for (const r of revenueData) {
-      const month = (r.booking_datetime || '').slice(0, 7); // "YYYY-MM"
-      if (!month) continue;
-      const entry = revenueByMonth.get(month) || { revenue: 0, count: 0 };
-      entry.revenue += r.gross_value_amount || 0;
+    // Pyramid (group by segmen_kepatuhan)
+    const pyramidMap = new Map<string, {
+      kode: string; nama: string; count: number;
+      tunggakanSum: number; tunggakanN: number;
+      phoneCount: number; paymentHistoryCount: number;
+      pkbSum: number;
+    }>();
+
+    for (const r of registry) {
+      const kode = r.segmen_kepatuhan || 'UNKNOWN';
+      const entry = pyramidMap.get(kode) || {
+        kode, nama: r.segmen_nama || kode, count: 0,
+        tunggakanSum: 0, tunggakanN: 0,
+        phoneCount: 0, paymentHistoryCount: 0, pkbSum: 0,
+      };
       entry.count += 1;
-      revenueByMonth.set(month, entry);
+      if (typeof r.durasi_tunggakan_days === 'number') {
+        entry.tunggakanSum += r.durasi_tunggakan_days;
+        entry.tunggakanN += 1;
+      }
+      if (r.has_phone) entry.phoneCount += 1;
+      if (r.has_payment_history) entry.paymentHistoryCount += 1;
+      if (typeof r.est_pkb_per_kendaraan === 'number') {
+        entry.pkbSum += r.est_pkb_per_kendaraan;
+      }
+      pyramidMap.set(kode, entry);
     }
-    data.revenueByMonth = Array.from(revenueByMonth.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, v]) => ({ month, revenue: Math.round(v.revenue), transactions: v.count }));
 
-    // Revenue by route (top routes)
-    const revenueByRoute = new Map<string, { revenue: number; count: number }>();
-    for (const r of revenueData) {
-      const route = r.origin_city && r.destination_city
-        ? `${r.origin_city}-${r.destination_city}` : 'Unknown';
-      const entry = revenueByRoute.get(route) || { revenue: 0, count: 0 };
-      entry.revenue += r.gross_value_amount || 0;
-      entry.count += 1;
-      revenueByRoute.set(route, entry);
+    data.compliancePyramid = Array.from(pyramidMap.values())
+      .map((e) => ({
+        kode: e.kode,
+        nama: e.nama,
+        count: e.count,
+        pct: Math.round((e.count / total) * 1000) / 10,
+        avgTunggakanDays: e.tunggakanN > 0 ? Math.round(e.tunggakanSum / e.tunggakanN) : null,
+        withPhonePct: Math.round((e.phoneCount / e.count) * 1000) / 10,
+        withPaymentHistoryPct: Math.round((e.paymentHistoryCount / e.count) * 1000) / 10,
+        totalEstPkb: Math.round(e.pkbSum),
+      }))
+      .sort((a, b) => (PYRAMID_ORDER[a.kode] ?? 99) - (PYRAMID_ORDER[b.kode] ?? 99));
+
+    data.totalKendaraanInSample = total;
+
+    // Compliance by kabupaten
+    const byKab = new Map<number, { kabupatenId: number; count: number; pkbSum: number }>();
+    for (const r of registry) {
+      if (typeof r.kabupaten_id !== 'number') continue;
+      const e = byKab.get(r.kabupaten_id) || { kabupatenId: r.kabupaten_id, count: 0, pkbSum: 0 };
+      e.count += 1;
+      e.pkbSum += r.est_pkb_per_kendaraan || 0;
+      byKab.set(r.kabupaten_id, e);
     }
-    data.revenueByRoute = Array.from(revenueByRoute.entries())
-      .sort(([, a], [, b]) => b.revenue - a.revenue)
-      .slice(0, 10)
-      .map(([route, v]) => ({ route, revenue: Math.round(v.revenue), transactions: v.count }));
+
+    // Decorate with kabupaten name if dim available
+    const dimKab = data['gold.dim_kabupaten'] as Array<{ kabupaten_id: number; nama_kabupaten: string; tipologi_wilayah?: string }> | undefined;
+    const nameById = new Map<number, { name: string; tipologi?: string }>();
+    if (Array.isArray(dimKab)) {
+      for (const k of dimKab) nameById.set(k.kabupaten_id, { name: k.nama_kabupaten, tipologi: k.tipologi_wilayah });
+    }
+
+    data.complianceByKabupaten = Array.from(byKab.values())
+      .map((e) => ({
+        kabupatenId: e.kabupatenId,
+        kabupaten: nameById.get(e.kabupatenId)?.name || `kab ${e.kabupatenId}`,
+        tipologi: nameById.get(e.kabupatenId)?.tipologi || null,
+        kendaraanCount: e.count,
+        totalEstPkb: Math.round(e.pkbSum),
+      }))
+      .sort((a, b) => b.totalEstPkb - a.totalEstPkb)
+      .slice(0, 14);
   }
 
-  // ---- NPS stats ----
-  const npsData = data['fact_nps_response'] as {
-    promoters_count?: number;
-    detractors_count?: number;
-    total_responses?: number;
-    month?: string;
-    customer_type?: string;
-  }[] | undefined;
+  // ---- Revenue stats (transaksi_2025) ----
+  const trx = data['gold.transaksi_2025'] as Array<{
+    paid_on?: string;
+    pokok_pkb?: number;
+    tunggakan_pokok_pkb?: number;
+    pokok_swdkllj?: number;
+    tunggakan_pokok_swdkllj?: number;
+    denda_swdkllj?: number;
+    kabupaten_id?: number;
+  }> | undefined;
 
-  if (Array.isArray(npsData) && npsData.length > 0) {
-    const totalPromoters = npsData.reduce((sum, n) => sum + (n.promoters_count || 0), 0);
-    const totalDetractors = npsData.reduce((sum, n) => sum + (n.detractors_count || 0), 0);
-    const totalResponses = npsData.reduce((sum, n) => sum + (n.total_responses || 0), 0);
-    if (totalResponses > 0) {
-      data.npsScore = Math.round(((totalPromoters - totalDetractors) / totalResponses) * 100);
-      data.promotersPercent = Math.round((totalPromoters / totalResponses) * 100);
-      data.detractorsPercent = Math.round((totalDetractors / totalResponses) * 100);
-    }
+  if (Array.isArray(trx) && trx.length > 0) {
+    const totalPkb = trx.reduce((s, t) => s + (t.pokok_pkb || 0), 0);
+    const totalPkbArrears = trx.reduce((s, t) => s + (t.tunggakan_pokok_pkb || 0), 0);
+    const totalSwdk = trx.reduce((s, t) => s + (t.pokok_swdkllj || 0), 0);
+    const totalSwdkArrears = trx.reduce((s, t) => s + (t.tunggakan_pokok_swdkllj || 0), 0);
+    const totalDenda = trx.reduce((s, t) => s + (t.denda_swdkllj || 0), 0);
 
-    // Monthly NPS aggregation
-    const npsByMonth = new Map<string, { promoters: number; detractors: number; total: number }>();
-    for (const n of npsData) {
-      const month = n.month || '';
+    data.totalPkbCollected = Math.round(totalPkb);
+    data.totalPkbArrears = Math.round(totalPkbArrears);
+    data.totalSwdkllj = Math.round(totalSwdk);
+    data.totalSwdkljjArrears = Math.round(totalSwdkArrears);
+    data.totalDendaSwdkllj = Math.round(totalDenda);
+    data.transactionCount = trx.length;
+
+    // Monthly aggregation (paid_on is text 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS')
+    const byMonth = new Map<string, { month: string; pkb: number; swdkllj: number; transactions: number }>();
+    for (const t of trx) {
+      const month = (t.paid_on || '').slice(0, 7);
       if (!month) continue;
-      const entry = npsByMonth.get(month) || { promoters: 0, detractors: 0, total: 0 };
-      entry.promoters += n.promoters_count || 0;
-      entry.detractors += n.detractors_count || 0;
-      entry.total += n.total_responses || 0;
-      npsByMonth.set(month, entry);
+      const e = byMonth.get(month) || { month, pkb: 0, swdkllj: 0, transactions: 0 };
+      e.pkb += t.pokok_pkb || 0;
+      e.swdkllj += t.pokok_swdkllj || 0;
+      e.transactions += 1;
+      byMonth.set(month, e);
     }
-    data.npsByMonth = Array.from(npsByMonth.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, v]) => ({
-        month,
-        nps: v.total > 0 ? Math.round(((v.promoters - v.detractors) / v.total) * 100) : 0,
-        responses: v.total,
-      }));
-  }
-
-  // ---- Trip/OTP stats ----
-  const tripData = data['fact_trip'] as {
-    is_on_time?: boolean;
-    trip_date?: string;
-    delay_minutes?: number;
-  }[] | undefined;
-
-  if (Array.isArray(tripData) && tripData.length > 0) {
-    const onTime = tripData.filter((t) => t.is_on_time).length;
-    data.totalTrips = tripData.length;
-    data.onTimeTrips = onTime;
-    data.otpPercent = Math.round((onTime / tripData.length) * 100);
-
-    // Monthly OTP aggregation
-    const otpByMonth = new Map<string, { total: number; onTime: number; totalDelay: number }>();
-    for (const t of tripData) {
-      const month = (t.trip_date || '').slice(0, 7);
-      if (!month) continue;
-      const entry = otpByMonth.get(month) || { total: 0, onTime: 0, totalDelay: 0 };
-      entry.total += 1;
-      if (t.is_on_time) entry.onTime += 1;
-      entry.totalDelay += t.delay_minutes || 0;
-      otpByMonth.set(month, entry);
-    }
-    data.otpByMonth = Array.from(otpByMonth.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, v]) => ({
-        month,
-        otpPercent: Math.round((v.onTime / v.total) * 100),
-        trips: v.total,
-        avgDelay: Math.round(v.totalDelay / v.total),
-      }));
-  }
-
-  // ---- Funnel stats ----
-  const funnelData = data['fact_funnel'] as {
-    homepage_flag?: boolean;
-    trip_input_page_flag?: boolean;
-    trip_option_page_flag?: boolean;
-    seat_option_page_flag?: boolean;
-    booking_page_flag?: boolean;
-    order_id?: string;
-  }[] | undefined;
-  if (Array.isArray(funnelData) && funnelData.length > 0) {
-    data.totalSessions = funnelData.length;
-    data.homepageVisits = funnelData.filter((f) => f.homepage_flag).length;
-    data.completedBookings = funnelData.filter((f) => f.booking_page_flag).length;
-    data.conversionRate = data.totalSessions
-      ? Math.round(((data.completedBookings as number) / (data.totalSessions as number)) * 100)
-      : 0;
+    data.pkbByMonth = Array.from(byMonth.values())
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((e) => ({ month: e.month, pkb: Math.round(e.pkb), swdkllj: Math.round(e.swdkllj), transactions: e.transactions }));
   }
 }

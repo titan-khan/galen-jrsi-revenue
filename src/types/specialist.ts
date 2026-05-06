@@ -1,9 +1,22 @@
-// Specialist Domain Categories (PRD-aligned)
-export type SpecialistDomain = 
-  | 'supply-chain' 
-  | 'commercial' 
-  | 'customer' 
-  | 'finance';
+// Specialist Domain Categories
+//
+// PKB pilot uses two domains aligned with the compliance + revenue-recovery
+// pillars. Legacy values are kept so JRSI/transport specialists in the codebase
+// (and any historic DB rows) continue to type-check.
+export type SpecialistDomain =
+  // PKB pilot (primary)
+  | 'compliance'
+  | 'revenue-recovery'
+  // Deprecated PKB domain — kept for any legacy rows that might still reference it
+  | 'governance'
+  // Legacy (JRSI / transport)
+  | 'supply-chain'
+  | 'commercial'
+  | 'customer'
+  | 'finance'
+  | 'road-safety'
+  | 'insurance'
+  | 'data-ops';
 
 // Specialist status — simple binary model
 export type SpecialistStatus =
@@ -219,13 +232,32 @@ export interface TeamPerformance {
 // ============================================
 
 // Business View categories (replaces domain-based template selection)
+//
+// PKB pilot business views are 3 MECE lenses (Compliance Health,
+// Revenue & Arrears, Treatment Execution). Geographic and vehicle
+// dimensions are NOT separate views — they are drivers used inside
+// any of the three. Legacy values are kept so older code paths
+// still type-check.
 export type BusinessView =
+  // PKB pilot (primary, MECE)
+  | 'compliance-health'
+  | 'revenue-arrears'
+  | 'treatment-execution'
+  // PKB pilot (deprecated — old slugs, kept for migration safety)
+  | 'data-trust'
+  | 'compliance-pyramid'
+  | 'revenue-recovery'
+  | 'geographic-coverage'
+  | 'vehicle-segmentation'
+  | 'data-governance'
+  // Legacy generic
   | 'revenue'
   | 'operations'
   | 'customer-experience'
   | 'cost-optimization'
   | 'risk-compliance'
   | 'fleet-assets'
+  // Legacy JRSI
   | 'accident-monitoring'
   | 'risk-mapping'
   | 'vehicle-intelligence'
