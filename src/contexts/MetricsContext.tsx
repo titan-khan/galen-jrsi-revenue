@@ -80,13 +80,18 @@ function formatChangeAbsolute(delta: number, currentValue: string): string {
 }
 
 /** Reference label untuk rate% — eksekutif harus tahu compare-nya vs apa.
- *  Tanpa label ini, "+1,52%" jadi ambigu. */
-const RATE_REFERENCE_LABEL = "vs minggu pertama 52 minggu lalu";
+ *  Sparkline 30 hari → rate% = nilai sekarang vs nilai 30 hari lalu. */
+const RATE_REFERENCE_LABEL = "vs 1 bulan lalu";
 
 /**
- * Apply derived change rate to a metric in-place if the spark has 2+ points.
- * Preserves explicit non-zero changePercent (some metrics intentionally show 0).
- * Adds rate reference (acuan compare) ke comparisonLabel jika belum eksplisit.
+ * Apply derived change rate to a metric. ALL metric cards yang punya sparkline
+ * 30-titik akan dapat rate% dihitung otomatis + acuan compare di comparisonLabel.
+ *
+ * Aturan acuan compare di comparisonLabel:
+ * - Jika belum ada (kosong / "—"): set ke RATE_REFERENCE_LABEL
+ * - Jika sudah punya frasa pembanding ("vs ...", "Target ...", "Batas ..."):
+ *   tambahkan rate reference dengan separator " · " agar audiens tetap tahu
+ *   bahwa rate% di card itu compare-nya 1 bulan lalu (bukan target).
  */
 function applyDerivedChangeRate(m: MetricDefinition): MetricDefinition {
   const spark = m.displayData?.sparklineData;
@@ -94,15 +99,18 @@ function applyDerivedChangeRate(m: MetricDefinition): MetricDefinition {
   const computed = deriveChangeFromSpark(spark, m.direction, m.displayData.currentValue);
   if (!computed) return m;
 
-  // Append rate reference ke comparisonLabel agar audiens tahu acuan compare-nya.
-  // Skip kalau comparisonLabel sudah punya frasa pembanding eksplisit ("vs", "Target", "Batas").
-  const existingLabel = m.displayData.comparisonLabel || "";
-  const hasExplicitReference = /\b(vs|Target|target|Batas|batas)\b/.test(existingLabel) || existingLabel.startsWith("—");
-  const enrichedLabel = hasExplicitReference
-    ? existingLabel
-    : existingLabel
-      ? `${existingLabel} · ${RATE_REFERENCE_LABEL}`
-      : RATE_REFERENCE_LABEL;
+  const existingLabel = (m.displayData.comparisonLabel || "").trim();
+  // Already includes the rate reference? Skip to avoid duplication.
+  const alreadyHasRateRef = existingLabel.includes(RATE_REFERENCE_LABEL);
+  let enrichedLabel: string;
+  if (alreadyHasRateRef || existingLabel === "" || existingLabel === "—") {
+    enrichedLabel = existingLabel || RATE_REFERENCE_LABEL;
+    if (!alreadyHasRateRef && existingLabel === "") enrichedLabel = RATE_REFERENCE_LABEL;
+  } else {
+    // Selalu append rate reference dengan " · " agar tiap card punya 2 acuan:
+    // (1) target/batas yang sudah ada, (2) rate% acuan periode 1 bulan
+    enrichedLabel = `${existingLabel} · rate ${RATE_REFERENCE_LABEL}`;
+  }
 
   return {
     ...m,
@@ -111,7 +119,6 @@ function applyDerivedChangeRate(m: MetricDefinition): MetricDefinition {
       changePercent: computed.changePercent,
       changeAbsolute: computed.changeAbsolute,
       comparisonLabel: enrichedLabel,
-      // Keep critical status from data but upgrade if rate-derived is worse
       status: severityRank(computed.status) > severityRank(m.displayData.status) ? computed.status : m.displayData.status,
     },
   };

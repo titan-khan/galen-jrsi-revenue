@@ -122,26 +122,43 @@ ${unfollowedMetrics.map((m) => `- ${m.id}: ${m.name} [${m.domain}] — ${m.curre
 2. \`direction=down_is_good\` → penurunan = berita BAIK.
 3. Status: healthy / warning (penurunan kurang baik 0-10%) / critical (>10%).
 
-## Tugas Anda — Briefing Eksekutif ("What / Why / So what / Now what")
+## Tugas Anda — Briefing Eksekutif Singkat & Actionable
 Hasilkan JSON dengan keys: "summary", "suggestions", "insights". Bahasa Indonesia.
 
-PENTING: SINGKAT — paragraf 3-5 kalimat, why 1-2 kalimat, insight 1 kalimat.
+CEO HANYA PUNYA 30 DETIK. Setiap kata harus bekerja. Filter brutal: jika eksekutif tidak bisa bertindak setelah baca, jangan tulis.
 
-### summary.paragraph (3-5 kalimat plain prose)
-1. **Apa yang terjadi** — angka utama vs target framework (mis. "Tunggakan 74,77% — 14,77 poin di atas target 60%").
-2. **Kenapa** — 1-2 pendorong, sebut nama kelompok kepatuhan.
-3. **Implikasinya apa** — dampak fiskal/strategis (mis. "Rp 23,5 miliar realistis bisa ditagih; kultur Patuh Aktif berisiko terkikis kalau amnesti tidak dipantau").
-4. **Aksi prioritas** — 1 langkah dengan trade-off jelas.
+### summary.paragraph (MAKS 3 kalimat — SANGAT SINGKAT)
+Struktur padat, 1 kalimat per beat:
+1. **Yang krusial sekarang** — angka utama + acuan compare ringkas. Contoh: "Patuh Aktif 25,23% — 14,77% di bawah target panduan framework 40%."
+2. **Pendorong + implikasi fiskal** dalam 1 kalimat. Contoh: "Tidak Patuh Kronis menyerap Rp 36,70 miliar potensi tertagih, kultur patuh mulai terkikis."
+3. **Satu aksi prioritas + trade-off** dalam 1 kalimat. Contoh: "Mulai gelombang pertama via WhatsApp ke Baru Lewat Tempo (Rp 12,96 miliar realistis 90 hari) tanpa amnesti generik agar Patuh Aktif tidak ikut menunda."
 
-- \`boldParts\`: nilai literal yang akan di-bold (verbatim dari paragraph).
-- \`positiveChanges\`/\`negativeChanges\`: maksimal 4 baris masing-masing, segmen-dimensional, nama natural.
-- \`topRisers\`/\`needsAttention\`: maksimal 4 each, sort by absolute changePercent. Pakai metric IDs persis dari kolom "ID".
+ATURAN PARAGRAF:
+- Maksimal 5-6 angka di paragraph. Kalau perlu detail lebih, taruh di insights.
+- JANGAN tulis kalimat dengan banyak klausa berantai.
+- Setiap kalimat selesai dengan implikasi jelas — bukan sekadar fakta.
 
-### suggestions (AISuggestionItem[])
-2-3 metrics yang belum di-follow, prescriptive value, sebut nama segmen, 2-3 opsi trade-off di why, accentType warning/info, domain Compliance/Revenue/Treatment/Demographic/SWDKLLJ/Operational, confidence 0.6-0.95, metric IDs persis.
+- \`boldParts\`: maksimal 5 nilai literal verbatim.
+
+### positiveChanges / negativeChanges (FORMAT WAJIB ACTIONABLE)
+Tiap baris HARUS ikut format: **"[Nama metric] [naik/turun X%] [acuan compare] — [implikasi atau action]"**.
+- Sebut acuan compare-nya: "vs 1 bulan lalu" untuk rate dari sparkline, "vs target X%" untuk perbandingan ke target.
+- Tutup dengan implikasi action, BUKAN restatement angka.
+- Maksimal 3 baris masing-masing. Kalau hanya 2 yang material, cukup 2.
+
+✅ "Patuh Aktif anjlok 10,04% vs 1 bulan lalu — sinyal kultur patuh terkikis, butuh program retensi"
+❌ "Patuh Aktif anjlok 10,04% ke 25,23% — 14,77% di bawah target framework 40%" (terlalu banyak angka, tidak ada action)
+✅ "Tidak Patuh Kronis naik 6,22% vs 1 bulan lalu — beban historis bertambah, pertimbangkan amnesti terbatas"
+❌ "Tidak Patuh Kronis naik 6,22% ke 32,05%" (gantung, tidak ada implikasi)
+
+### topRisers / needsAttention
+Maksimal 4 each, sort by absolute changePercent. Pakai metric IDs persis dari kolom "ID".
+
+### suggestions
+2-3 metrics belum follow, prescriptive, sebut nama segmen, 2-3 opsi trade-off di why, accentType warning/info, domain valid, confidence 0.6-0.95.
 
 ### insights (Record<metricId, { text, boldParts }>)
-1 kalimat prescriptive per FOLLOWED metric ("jadi apa untuk 90 hari ke depan"). Sebut kelompok kepatuhan/ambang batas.
+1 kalimat prescriptive per FOLLOWED metric. Format: "[Status sekarang] — [aksi 30 hari ke depan]". Sebut acuan compare jika menyebut perubahan.
 
 ## Output Format
 Return ONLY valid JSON (no markdown, no code fences). Schema:
@@ -210,7 +227,7 @@ Deno.serve(async (req: Request) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analisis metrics snapshot ${period} (cakupan: ${segment === "all" ? "semua kelompok" : segment}). Output JSON dengan keys "summary", "suggestions", "insights". Bahasa Indonesia C-level. WAJIB nama natural kelompok kepatuhan (Tidak Patuh Kronis, Patuh Aktif, dll). DILARANG: kode segmen (H1/K1/M2), nama database/kolom (gold.*, durasi_tunggakan_days, dll), jargon konsultan (TAM/BCG/yield-weighted/cost-to-collect/moral hazard/guardrail/wave-1), singkatan teknis (pp/p25). SINGKAT — 1 kalimat per insight.` },
+          { role: "user", content: `Analisis metrics snapshot ${period}. Output JSON keys "summary", "suggestions", "insights". Bahasa Indonesia C-level. WAJIB SANGAT SINGKAT: paragraph maks 3 kalimat, tiap positiveChanges/negativeChanges baris ikut format "[Metric] [naik/turun X%] [acuan compare] — [implikasi action]". DILARANG: kode H1/K1/M2/S2, nama database (gold.*/transaksi_fact), jargon konsultan (TAM/BCG/yield-weighted/konversi/cost-to-collect/moral hazard/guardrail/wave-1), HP telanjang (pakai "nomor handphone"), full number Rupiah (pakai miliar/juta), pp (pakai "% poin"). Tiap rate% wajib ada acuan compare ("vs 1 bulan lalu" / "vs target X%"). CEO baca cuma 30 detik — tiap kata harus actionable.` },
         ],
       }),
     });

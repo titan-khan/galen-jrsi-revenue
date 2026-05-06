@@ -11,8 +11,18 @@ type DisplayPartial = Pick<
   "description" | "metricType" | "valueSentiment" | "direction" | "isFollowing" | "displayData"
 > & { unit?: string };
 
-// 52-week trend generator (1 tahun weekly snapshots) — replaces FLAT_SPARK
-// agar tiap metric menampilkan tren historis yang realistis.
+// =============================================================================
+// 30-day daily trend generator
+// =============================================================================
+// Tanggal: anchor ke snapshot 2026-05-05 (sumber: registry data refresh terakhir
+// dari gold.registry_enriched). 30 titik harian sebelum snapshot disintesis dari
+// distribusi noise + seasonality kecil agar sparkline punya bentuk realistis.
+// Saat gold.transaksi_fact / time-series live tersedia, ganti generator ini
+// dengan agregat harian aktual dari kolom tanggal_transaksi atau snapshot_date.
+// =============================================================================
+const SNAPSHOT_DATE = "2026-05-05";
+const TREND_DAYS = 30; // 1 bulan terakhir
+
 function seedRand(seed: number): () => number {
   let s = seed;
   return () => {
@@ -21,18 +31,20 @@ function seedRand(seed: number): () => number {
   };
 }
 function trend52(start: number, end: number, opts: { noise?: number; season?: number; seed?: number } = {}) {
+  // Note: nama dipertahankan untuk backward compat — sekarang generate 30-day
+  // daily, bukan 52-week. Replace dengan live aggregate setelah data masuk.
   const { noise = 0.03, season = 0.04, seed = 17 } = opts;
   const rand = seedRand(seed);
   const range = end - start;
-  const snap = new Date("2026-05-05");
+  const snap = new Date(SNAPSHOT_DATE);
   const out: Array<{ month: string; value: number }> = [];
-  for (let i = 0; i < 52; i++) {
-    const t = i / 51;
+  for (let i = 0; i < TREND_DAYS; i++) {
+    const t = i / (TREND_DAYS - 1);
     const base = start + range * t;
-    const seasonal = Math.sin((i / 52) * Math.PI * 2) * Math.abs(range || end || 1) * season;
+    const seasonal = Math.sin((i / TREND_DAYS) * Math.PI * 2) * Math.abs(range || end || 1) * season;
     const jitter = (rand() - 0.5) * 2 * Math.abs(range || end || 1) * noise;
     const d = new Date(snap);
-    d.setDate(d.getDate() - (51 - i) * 7);
+    d.setDate(d.getDate() - (TREND_DAYS - 1 - i));
     out.push({ month: d.toISOString().slice(0, 10), value: Math.max(0, base + seasonal + jitter) });
   }
   out[out.length - 1].value = end;

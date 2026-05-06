@@ -94,11 +94,15 @@ const costToCollectRatio = (blendedChannelCost / totalYield) * 100;
 const fmtIDRb = (n: number) => "Rp " + (n / 1_000_000_000).toFixed(2).replace(".", ",") + " miliar";
 const fmtIDR = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 
-// ─── 52-week Sparkline Generator ────────────────────────────────────────────
-// Synthetic weekly trend (1 tahun) hingga snapshot 2026-05-05. Replace dengan
-// live aggregate dari `gold.transaksi_fact` saat tabel itu sudah di-populate.
+// ─── 30-day Daily Sparkline Generator ───────────────────────────────────────
+// Synthetic daily trend (1 bulan terakhir) hingga snapshot 2026-05-05. Replace
+// dengan live aggregate dari `gold.transaksi_fact` (kolom tanggal_transaksi /
+// snapshot_date) saat tabel itu sudah di-populate.
 //
 // Menggunakan deterministic seeded noise per metric agar konsisten antar render.
+const SNAPSHOT_DATE = "2026-05-05";
+const TREND_DAYS = 30;
+
 function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
@@ -108,7 +112,7 @@ function seededRandom(seed: number): () => number {
 }
 
 interface SparkOpts {
-  /** Starting value at t=-52 weeks */
+  /** Starting value at t=-30 days (1 bulan lalu) */
   start: number;
   /** Ending value at t=0 (snapshot date) */
   end: number;
@@ -121,22 +125,23 @@ interface SparkOpts {
 }
 
 function genWeeklyTrend(opts: SparkOpts): Array<{ month: string; value: number }> {
+  // Note: nama "genWeeklyTrend" dipertahankan untuk backward compat —
+  // sekarang generate 30-day daily.
   const { start, end, noise = 0.04, season = 0.05, seed = 42 } = opts;
   const rand = seededRandom(seed);
   const points: Array<{ month: string; value: number }> = [];
   const range = end - start;
-  // 2026-05-05 is the snapshot. 52 weeks back ~ 2025-05-13.
-  const snapshotDate = new Date("2026-05-05");
-  for (let i = 0; i < 52; i++) {
-    const t = i / 51; // 0 → 1 across the year
+  const snapshotDate = new Date(SNAPSHOT_DATE);
+  for (let i = 0; i < TREND_DAYS; i++) {
+    const t = i / (TREND_DAYS - 1);
     const baseTrend = start + range * t;
-    const seasonal = Math.sin((i / 52) * Math.PI * 2) * Math.abs(range || end || 1) * season;
+    const seasonal = Math.sin((i / TREND_DAYS) * Math.PI * 2) * Math.abs(range || end || 1) * season;
     const noiseDelta = (rand() - 0.5) * 2 * Math.abs(range || end || 1) * noise;
     const value = Math.max(0, baseTrend + seasonal + noiseDelta);
     const date = new Date(snapshotDate);
-    date.setDate(date.getDate() - (51 - i) * 7);
-    const isoWeek = date.toISOString().slice(0, 10); // YYYY-MM-DD
-    points.push({ month: isoWeek, value });
+    date.setDate(date.getDate() - (TREND_DAYS - 1 - i));
+    const isoDay = date.toISOString().slice(0, 10); // YYYY-MM-DD
+    points.push({ month: isoDay, value });
   }
   // Force last point to exact `end` so chart aligns with current snapshot value
   points[points.length - 1].value = end;
