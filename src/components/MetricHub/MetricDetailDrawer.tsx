@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, TrendingUp, TrendingDown, ExternalLink, MessageSquare } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, ExternalLink, MessageSquare, Lightbulb, AlertTriangle } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -50,13 +50,23 @@ const highlightText = (text: string, boldParts: string[]) => {
 
 export function MetricDetailDrawer({ metricId, open, onClose }: MetricDetailDrawerProps) {
   const navigate = useNavigate();
-  const { getMetricById } = useMetrics();
+  const { getMetricById, aiSuggestions } = useMetrics();
   const metric = metricId ? getMetricById(metricId) : undefined;
 
   const breadcrumbPath = useMemo(() => {
     if (!metricId) return [];
     return getMetricPath(metricId);
   }, [metricId]);
+
+  // Pull AI suggestions relevant to this metric — either directly targeting it
+  // or referencing it in the relatedMetricPath. Surfaces prescriptive actions
+  // inline with the metric (P2.13: merge MetricSuggestions panel into drawer).
+  const relevantSuggestions = useMemo(() => {
+    if (!metricId) return [];
+    return aiSuggestions.filter(
+      (s) => s.metricId === metricId || s.relatedMetricPath?.includes(metricId)
+    );
+  }, [metricId, aiSuggestions]);
 
   if (!metric) {
     return (
@@ -199,6 +209,53 @@ export function MetricDetailDrawer({ metricId, open, onClose }: MetricDetailDraw
                         {name}
                       </span>
                     </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Action Suggestions (BCG prescriptive lens — P2.13 merge) */}
+          {relevantSuggestions.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <h4 className="text-[13px] font-medium text-foreground flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                  Saran Tindakan
+                </h4>
+                <div className="space-y-2">
+                  {relevantSuggestions.map((s) => (
+                    <div
+                      key={s.id}
+                      className={cn(
+                        'rounded-lg border p-3 space-y-1.5',
+                        s.accentType === 'warning'
+                          ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/20'
+                          : 'border-blue-200 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/20'
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        {s.accentType === 'warning' ? (
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                        ) : (
+                          <Lightbulb className="h-3.5 w-3.5 text-blue-600 mt-0.5 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-[12px] font-medium text-foreground truncate">
+                              {s.metricName}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              conf {Math.round((s.confidence ?? 0) * 100)}%
+                            </span>
+                          </div>
+                          <p className="text-[12px] leading-relaxed text-muted-foreground">
+                            {s.why}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

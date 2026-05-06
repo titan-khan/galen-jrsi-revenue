@@ -1,4 +1,4 @@
-import { Calendar, Layers, ArrowLeftRight } from 'lucide-react';
+import { Calendar, Layers, ArrowLeftRight, CameraIcon } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -17,6 +17,12 @@ interface PeriodSelectorRowProps {
   filters: PeriodFilters;
   onFiltersChange: (filters: PeriodFilters) => void;
 }
+
+// PKB pilot data is a single snapshot (no time-series yet). When JRSI legacy is off,
+// suppress the misleading time/segment/comparison dropdowns and show a transparent
+// snapshot badge instead. Avoids "UI lying about temporality" — full audit context.
+const PKB_SNAPSHOT_DATE = '2026-05-05';
+const PKB_SNAPSHOT_LOCATION = 'Palangka Raya';
 
 // Actual data range: Jan 2025 – Jan 2026 (13 months)
 const PERIODS = [
@@ -50,6 +56,28 @@ const COMPARISONS = [
 ];
 
 export function PeriodSelectorRow({ filters, onFiltersChange }: PeriodSelectorRowProps) {
+  const enableJrsiLegacy = import.meta.env.VITE_ENABLE_JRSI_LEGACY === 'true';
+
+  // Snapshot-only mode for PKB pilot — replaces misleading time-series controls
+  // until gold.transaksi_fact is ingested and we have real period-over-period data.
+  if (!enableJrsiLegacy) {
+    return (
+      <div className="flex items-center gap-2 flex-wrap text-[12px] text-muted-foreground">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1"
+          title="Tanggal snapshot diambil dari registry data refresh terakhir di Palangka Raya. Semua metric card menampilkan nilai pada tanggal ini, dengan tren 30 hari sebelumnya untuk konteks perubahan."
+        >
+          <CameraIcon className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span className="font-medium text-foreground/90">Snapshot {PKB_SNAPSHOT_DATE}</span>
+          <span className="text-muted-foreground/70">· {PKB_SNAPSHOT_LOCATION}</span>
+        </span>
+        <span className="text-muted-foreground/60">
+          Tren 30 hari terakhir hingga tanggal snapshot — sumber: registry kendaraan Palangka Raya. Tren harian akan menjadi data aktual setelah data transaksi pembayaran masuk.
+        </span>
+      </div>
+    );
+  }
+
   const update = (key: keyof PeriodFilters, value: string) => {
     onFiltersChange({ ...filters, [key]: value });
   };

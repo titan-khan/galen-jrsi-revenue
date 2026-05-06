@@ -6,14 +6,12 @@ export type ValueSentiment = "up-good" | "up-bad";
 export type MetricDomain =
   // Generic / legacy
   | 'Revenue' | 'Cost' | 'Fee' | 'Margin' | 'Operational' | 'Performance'
-  // JRSI legacy
-  | 'Accident Overview' | 'Financial' | 'Vehicle' | 'TRL Risk'
-  | 'Cause Analysis' | 'Data Quality' | 'Time Analysis'
-  // PKB pilot — one domain per MECE business view so suggested focus areas
-  // in the HireSpecialist wizard don't overlap across views.
-  | 'Compliance' | 'Treatment'
-  // Deprecated PKB domain — kept for any legacy data that might still reference it
-  | 'Data Trust';
+  // JRSI (road safety / accidents)
+  | 'Accident Overview' | 'Financial' | 'Vehicle' | 'TRL Risk' | 'Cause Analysis' | 'Data Quality' | 'Time Analysis'
+  // PKB Palangka Raya pilot
+  | 'Compliance' | 'Treatment' | 'SWDKLLJ' | 'Demographic' | 'Claims' | 'Safety' | 'Risk' | 'Cause' | 'Temporal'
+  // Governance
+  | 'Governance';
 export type MetricType = 'actionable' | 'result' | 'observational' | 'experimental';
 
 export interface MetricFilter {
@@ -73,6 +71,10 @@ export interface MetricDefinition {
   displayData: {
     filterContext: string;
     comparisonLabel: string; // e.g. "vs Dec 2025" or "vs Jan 2025 (YoY)"
+    /** Optional plain-Indonesian "cara hitung" caption shown below the name.
+     *  Should NOT be a formula — answers "apa yang diukur?" in 1 line.
+     *  Example: "Total kendaraan dibagi per 7 kelompok kepatuhan" */
+    subtitle?: string;
     currentValue: string;
     changePercent: number;
     changeAbsolute: string;

@@ -4,12 +4,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { MetricDefinition } from '@/types/metric';
+import { useMetrics } from '@/contexts/MetricsContext';
+import { MetricCertBadge } from '@/components/MetricCertBadge';
 
 interface CompactMetricCardProps {
   metric: MetricDefinition;
   onToggleFollow: (id: string) => void;
   onViewDetails?: (metricId: string) => void;
 }
+
+const SHOW_CERT_BADGES = import.meta.env.VITE_SHOW_CERT_BADGES === "true";
 
 const DOMAIN_COLORS: Record<string, string> = {
   Revenue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
@@ -23,6 +27,8 @@ const DOMAIN_COLORS: Record<string, string> = {
 export function CompactMetricCard({ metric, onToggleFollow, onViewDetails }: CompactMetricCardProps) {
   const [isHoveringFollow, setIsHoveringFollow] = useState(false);
   const { displayData } = metric;
+  const { getCertForMetric } = useMetrics();
+  const cert = getCertForMetric(metric.id);
   const isPositive = displayData.changePercent >= 0;
   const isGood =
     metric.direction === 'down_is_good'
@@ -83,20 +89,30 @@ export function CompactMetricCard({ metric, onToggleFollow, onViewDetails }: Com
         )}
       </div>
 
-      {/* Domain badge */}
-      {metric.domain && (
-        <Badge
-          variant="outline"
-          className={cn('text-[10px] h-5 px-1.5 font-medium mb-2', domainColor)}
-        >
-          {metric.domain}
-        </Badge>
-      )}
+      {/* Domain + (optional) cert badges */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        {metric.domain && (
+          <Badge
+            variant="outline"
+            className={cn('text-[10px] h-5 px-1.5 font-medium', domainColor)}
+          >
+            {metric.domain}
+          </Badge>
+        )}
+        {SHOW_CERT_BADGES && cert && <MetricCertBadge cert={cert} size="sm" />}
+      </div>
 
       {/* Metric name */}
-      <h3 className="text-[14px] font-medium text-foreground mb-2 pr-16 leading-tight">
+      <h3 className="text-[14px] font-medium text-foreground mb-1 pr-16 leading-tight">
         {metric.name}
       </h3>
+
+      {/* Subtitle: plain "apa yang diukur" caption (selaras dengan MetricCard) */}
+      {displayData.subtitle && (
+        <p className="text-[11px] text-muted-foreground/70 mb-2 leading-snug pr-16">
+          {displayData.subtitle}
+        </p>
+      )}
 
       {/* Value + change */}
       <div className="flex items-baseline gap-2 mb-1">

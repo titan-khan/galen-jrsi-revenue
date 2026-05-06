@@ -5,6 +5,8 @@ import type { MetricDefinition } from '@/types/metric';
 import { useMetrics } from '@/contexts/MetricsContext';
 import { MetricCertBadge } from '@/components/MetricCertBadge';
 
+const SHOW_CERT_BADGES = import.meta.env.VITE_SHOW_CERT_BADGES === "true";
+
 interface MetricCardProps {
   metric: MetricDefinition;
 }
@@ -58,7 +60,7 @@ export function MetricCard({ metric }: MetricCardProps) {
         </span>
       </div>
 
-      {cert && (
+      {SHOW_CERT_BADGES && cert && (
         <div className="mt-1.5">
           <MetricCertBadge cert={cert} size="sm" />
         </div>
