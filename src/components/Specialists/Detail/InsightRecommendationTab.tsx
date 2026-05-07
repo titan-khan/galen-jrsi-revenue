@@ -231,8 +231,8 @@ export function InsightRecommendationTab({
   }), [insights]);
 
   const hasRefs = useMemo(
-    () => hasCrossReferences(insights, recommendations),
-    [insights, recommendations],
+    () => hasCrossReferences(insights, recommendations, rootCauses),
+    [insights, recommendations, rootCauses],
   );
 
   // Local grouping fallback when parent doesn't provide grouped data

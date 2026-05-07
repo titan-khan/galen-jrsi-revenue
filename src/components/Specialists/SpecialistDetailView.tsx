@@ -85,7 +85,7 @@ export function SpecialistDetailView() {
 
   // Derive grouped insight data (passed to InsightRecommendationTab for outline)
   const grouped = useMemo(() => {
-    const hasRefs = hasCrossReferences(insights, recommendations);
+    const hasRefs = hasCrossReferences(insights, recommendations, rootCauses);
     if (!hasRefs) return null;
     return groupByRootCause(rootCauses, insights, recommendations);
   }, [rootCauses, insights, recommendations]);

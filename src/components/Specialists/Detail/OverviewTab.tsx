@@ -13,6 +13,12 @@ import { getNorthStarMetrics } from '@/data/transportXSpecialists';
 import { useSpecialists } from '@/contexts/SpecialistsContext';
 import { useMetrics } from '@/contexts/MetricsContext';
 import { metricsData as localCatalog } from '@/data/metricsData';
+import { RACIMatrixTable } from '@/components/Specialists/RACIMatrix';
+import {
+  inferSegmenFromText,
+  getRACIForSegment,
+  getSegmenByKode,
+} from '@/services/raciService';
 import { cn } from '@/lib/utils';
 import type { SpecialistInsight, SpecialistRecommendation } from '@/types/specialist';
 import type { MetricConfig } from '@/types/specialist';
@@ -612,6 +618,27 @@ export function OverviewTab({
           />
         </div>
       )}
+
+      {/* Section 5: RACI Matrix — inter-agency assignment per segment */}
+      {(() => {
+        const inferText = [
+          specialist?.name,
+          specialist?.description,
+          executiveSummary?.headline,
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const segmenKode = inferSegmenFromText(inferText);
+        if (!segmenKode) return null;
+        const segmen = getSegmenByKode(segmenKode);
+        const raciRows = getRACIForSegment(segmenKode);
+        if (raciRows.length === 0) return null;
+        return (
+          <div data-section-id="overview-raci">
+            <RACIMatrixTable rows={raciRows} segmen={segmen} />
+          </div>
+        );
+      })()}
     </div>
   );
 }

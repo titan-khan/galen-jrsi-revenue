@@ -33,6 +33,12 @@ import {
   formatImpactValue,
 } from '@/components/Specialists/RecommendationCard';
 import { ApproveDialog, RejectDialog, ReassignDialog } from './ApprovalDialogs';
+import { RACIRowSummary } from '@/components/Specialists/RACIMatrix';
+import {
+  inferSegmenFromText,
+  bestMatchRACIRow,
+  getRACIForSegment,
+} from '@/services/raciService';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -245,7 +251,27 @@ export function RecommendationDetailPanel({
               Current State → Target State → Calculation+Assumptions → Quarterly Impact → Implementation Tactics */}
           {sc && <StructuredContentSection content={sc} />}
 
-          {/* PIC / Penanggung Jawab (after Implementation Tactics) */}
+          {/* RACI — inter-agency assignment for this rec */}
+          {(() => {
+            const inferText = [
+              recommendation.title,
+              recommendation.description,
+              rootCause?.cause,
+            ]
+              .filter(Boolean)
+              .join(' ');
+            const segmenKode = inferSegmenFromText(inferText);
+            if (!segmenKode) return null;
+            const allForSegment = getRACIForSegment(segmenKode);
+            const matched = bestMatchRACIRow(recommendation.title, allForSegment, segmenKode);
+            // Fallback to the first row of the segment if no good title match,
+            // so users still see institutional coordination context.
+            const rowToShow = matched ?? allForSegment[0];
+            if (!rowToShow) return null;
+            return <RACIRowSummary row={rowToShow} />;
+          })()}
+
+          {/* PIC / Penanggung Jawab (after RACI) */}
           <PICSection
             assignee={recommendation.assignee}
             canEdit={!!onReassign}
