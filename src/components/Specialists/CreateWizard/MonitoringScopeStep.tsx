@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { Check, TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Info, Sparkles, Copy } from 'lucide-react';
 import { useMetrics } from '@/contexts/MetricsContext';
 import { SVGSparkline } from '@/components/MetricHub/SVGSparkline';
-import { MetricChips } from './MetricChips';
 import { DimensionChips } from './DimensionChips';
 import { FilterRows } from './FilterRows';
 import { cn } from '@/lib/utils';
@@ -74,8 +73,6 @@ interface MonitoringScopeStepProps {
   businessView: BusinessView | null;
   metrics: MetricConfig[];
   onMetricsChange: (metrics: MetricConfig[]) => void;
-  drivers: MetricConfig[];
-  onDriversChange: (drivers: MetricConfig[]) => void;
   dimensions: string[];
   onDimensionsChange: (dimensions: string[]) => void;
   filters: MonitoringFilter[];
@@ -96,8 +93,6 @@ export const MonitoringScopeStep = ({
   businessView,
   metrics,
   onMetricsChange,
-  drivers,
-  onDriversChange,
   dimensions,
   onDimensionsChange,
   filters,
@@ -267,7 +262,8 @@ export const MonitoringScopeStep = ({
           </div>
         )}
 
-        <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/40">
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="max-h-[420px] overflow-y-auto divide-y divide-border/40">
           {scoredMetrics.map(({ metric, isAiSuggested, isNeedsAttention }) => {
             const isChecked = selectedIds.has(metric.id);
             const hasData = metric.displayData.currentValue !== '—';
@@ -373,6 +369,7 @@ export const MonitoringScopeStep = ({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -442,28 +439,6 @@ export const MonitoringScopeStep = ({
           </p>
         </div>
       )}
-
-      {/* ── Additional Metrics (catalog search) ──────────────────────── */}
-      <div className="border-t border-border/40 pt-6">
-        <MetricChips
-          label="Additional Metrics"
-          sublabel="Search the full catalog to add more metrics"
-          metrics={metrics}
-          onChange={onMetricsChange}
-          accentColor="bg-primary/10 text-primary"
-        />
-      </div>
-
-      {/* ── Key Driver Metrics (optional) ────────────────────────────── */}
-      <div className="border-t border-border/40 pt-6">
-        <MetricChips
-          label="Key Driver Metrics"
-          sublabel="Optional — metrik lain yang dianggap menggerakkan KPI utama (bukan dimensi)"
-          metrics={drivers}
-          onChange={onDriversChange}
-          accentColor="bg-violet-500/10 text-violet-600"
-        />
-      </div>
 
       {/* ── Breakdown Dimensions ─────────────────────────────────────── */}
       <div className="border-t border-border/40 pt-6">
