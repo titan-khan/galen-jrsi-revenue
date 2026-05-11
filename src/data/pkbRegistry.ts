@@ -465,16 +465,48 @@ const HAS_PHONE: { id: string; label: string }[] = [
   { id: 'false', label: 'Tidak ada' },
 ];
 
+const BAHAN_BAKAR: { id: string; label: string }[] = [
+  { id: 'bensin', label: 'Bensin' },
+  { id: 'solar', label: 'Solar/Diesel' },
+  { id: 'listrik', label: 'Listrik (EV)' },
+  { id: 'hybrid', label: 'Hybrid' },
+  { id: 'gas', label: 'Gas (CNG/LPG)' },
+];
+
+const WARNA_PLAT: { id: string; label: string }[] = [
+  { id: 'hitam', label: 'Hitam (pribadi)' },
+  { id: 'kuning', label: 'Kuning (umum)' },
+  { id: 'merah', label: 'Merah (dinas)' },
+  { id: 'putih', label: 'Putih (BLE/diplomatik)' },
+];
+
 export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
-  // Geographic
+  // ── Geographic ─────────────────────────────────────────────────────
   {
     id: 'kabupaten_id',
     label: 'Kabupaten',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'categorical',
     valuesSource: { kind: 'static', values: KALTENG_KABUPATEN },
     businessViews: ALL_PKB_VIEWS,
     description: '14 kabupaten/kota Kalteng.',
+  },
+  {
+    id: 'kecamatan',
+    label: 'Kecamatan',
+    table: 'gold.registry_fact',
+    dataType: 'categorical',
+    // Open enum — populated from registry_fact at query time. Free-text input for now.
+    businessViews: ALL_PKB_VIEWS,
+    description: 'Kecamatan domisili kendaraan (text field).',
+  },
+  {
+    id: 'kelurahan',
+    label: 'Kelurahan',
+    table: 'gold.registry_fact',
+    dataType: 'categorical',
+    businessViews: ALL_PKB_VIEWS,
+    description: 'Kelurahan/desa domisili kendaraan (text field).',
   },
   {
     id: 'upt_id',
@@ -494,28 +526,60 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
     businessViews: ALL_PKB_VIEWS,
   },
 
-  // Vehicle
+  // ── Vehicle ────────────────────────────────────────────────────────
   {
     id: 'kode_jenken',
     label: 'Jenis Kendaraan',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'categorical',
     valuesSource: { kind: 'static', values: PKB_JENKEN },
     businessViews: ALL_PKB_VIEWS,
   },
   {
+    id: 'merek_kendaraan',
+    label: 'Merek Kendaraan',
+    table: 'gold.registry_fact',
+    dataType: 'categorical',
+    businessViews: ALL_PKB_VIEWS,
+    description: 'Merek/brand kendaraan (text field).',
+  },
+  {
+    id: 'bahan_bakar',
+    label: 'Bahan Bakar',
+    table: 'gold.registry_fact',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: BAHAN_BAKAR },
+    businessViews: ALL_PKB_VIEWS,
+  },
+  {
+    id: 'warna_plat',
+    label: 'Warna Plat',
+    table: 'gold.registry_fact',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: WARNA_PLAT },
+    businessViews: ALL_PKB_VIEWS,
+    description: 'Hitam (pribadi) / Kuning (umum) / Merah (dinas) / Putih (BLE).',
+  },
+  {
+    id: 'thn_buat',
+    label: 'Tahun Pembuatan',
+    table: 'gold.registry_fact',
+    dataType: 'numeric',
+    businessViews: ALL_PKB_VIEWS,
+  },
+  {
     id: 'usia_kendaraan',
     label: 'Usia Kendaraan (tahun)',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'numeric',
     businessViews: ALL_PKB_VIEWS,
   },
 
-  // Compliance behavior
+  // ── Compliance behavior ────────────────────────────────────────────
   {
     id: 'segmen_kepatuhan',
     label: 'Segmen Kepatuhan',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'categorical',
     valuesSource: {
       kind: 'static',
@@ -527,30 +591,30 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
   {
     id: 'durasi_tunggakan_days',
     label: 'Durasi Tunggakan (hari)',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'numeric',
     businessViews: ALL_PKB_VIEWS,
   },
   {
     id: 'has_phone',
     label: 'Cakupan Handphone',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'categorical',
     valuesSource: { kind: 'static', values: HAS_PHONE },
     businessViews: ['treatment-execution', 'compliance-health'],
   },
 
-  // Treatment
+  // ── Treatment ──────────────────────────────────────────────────────
   {
     id: 'treatment_kanal_utama',
     label: 'Saluran Treatment',
-    table: 'gold.registry_enriched',
+    table: 'gold.registry_fact',
     dataType: 'categorical',
     valuesSource: { kind: 'static', values: KANAL_UTAMA },
     businessViews: ['treatment-execution'],
   },
 
-  // Service / temporal
+  // ── Service / temporal ─────────────────────────────────────────────
   {
     id: 'id_layanan',
     label: 'Jenis Layanan',
@@ -562,7 +626,7 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
   {
     id: 'paid_on',
     label: 'Tanggal Bayar',
-    table: 'gold.transaksi_2025',
+    table: 'gold.transaksi_fact',
     dataType: 'date',
     businessViews: ['revenue-arrears'],
   },

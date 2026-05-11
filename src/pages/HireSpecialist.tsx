@@ -60,7 +60,6 @@ const HireSpecialist = () => {
 
   // Step 2: Monitoring
   const [metrics, setMetrics] = useState<MetricConfig[]>([]);
-  const [drivers, setDrivers] = useState<MetricConfig[]>([]);
   const [dimensions, setDimensions] = useState<string[]>([]);
   const [filters, setFilters] = useState<MonitoringFilter[]>([]);
 
@@ -210,7 +209,6 @@ const HireSpecialist = () => {
     setBusinessView(view);
     setSelectedUseCaseId(null);
     setMetrics([]);
-    setDrivers([]);
     setDimensions([]);
     setFilters([]);
     setMonitoringRules([]);
@@ -444,7 +442,6 @@ const HireSpecialist = () => {
       businessView,
       useCaseId: selectedUseCaseId || undefined,
       metrics,
-      drivers,
       knowledgeBase: {
         files: knowledgeFiles,
         instructions,
@@ -496,8 +493,6 @@ const HireSpecialist = () => {
           businessView={businessView}
           metrics={metrics}
           onMetricsChange={setMetrics}
-          drivers={drivers}
-          onDriversChange={setDrivers}
           dimensions={dimensions}
           onDimensionsChange={setDimensions}
           filters={filters}
@@ -513,7 +508,7 @@ const HireSpecialist = () => {
           rules={monitoringRules}
           onChange={setMonitoringRules}
           hasAutoRules={monitoringRules.length > 0}
-          availableMetrics={[...metrics, ...drivers]}
+          availableMetrics={metrics}
         />
       )}
 
