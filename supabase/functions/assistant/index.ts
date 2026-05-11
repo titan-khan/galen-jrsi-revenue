@@ -10,6 +10,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
 import { resolveQueryContext } from "./queryContext.ts";
 import { detectIntent } from "./intentDetector.ts";
 import { QUERY_SPECS_BY_INTENT } from "./querySpecs.ts";
+import {
+  detectCategoricalColumns,
+  fetchCategoricalSummaries,
+  fetchRegistryGlobalStats,
+} from "./categoricalProbe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -224,9 +229,13 @@ function buildDbContextSection(dbData: Record<string, unknown>): string {
   parts.push('\n\n=== HASIL QUERY DATABASE (Ground Truth) ===');
 
   // Pre-computed PKB summaries
+  const hasGroundTruth = dbData.registryGlobalStats && typeof dbData.registryGlobalStats === 'object';
   const summaryLines: string[] = [];
   if (typeof dbData.totalKendaraanInSample === 'number') {
-    summaryLines.push(`Sample kendaraan dianalisis: ${dbData.totalKendaraanInSample}`);
+    const label = hasGroundTruth
+      ? 'Total kendaraan (ground truth, full table)'
+      : 'Sample kendaraan dianalisis';
+    summaryLines.push(`${label}: ${dbData.totalKendaraanInSample.toLocaleString('id-ID')}`);
   }
   if (typeof dbData.totalPkbCollected === 'number') {
     summaryLines.push(`Total PKB tertagih (sample): Rp ${dbData.totalPkbCollected.toLocaleString('id-ID')}`);
@@ -244,6 +253,16 @@ function buildDbContextSection(dbData: Record<string, unknown>): string {
   if (summaryLines.length > 0) {
     parts.push('\nMetrik Kunci (pre-calculated):');
     for (const line of summaryLines) parts.push(`  • ${line}`);
+  }
+
+  if (dbData.registryGlobalStats && typeof dbData.registryGlobalStats === 'object') {
+    parts.push('\nRingkasan Registry — GROUND TRUTH (full table, BUKAN sample). Pakai angka ini, jangan hitung ulang dari raw rows:');
+    parts.push(JSON.stringify(dbData.registryGlobalStats));
+  }
+
+  if (Array.isArray(dbData.categoricalSummaries) && (dbData.categoricalSummaries as unknown[]).length > 0) {
+    parts.push('\nRingkasan Kolom Kategorikal — GROUND TRUTH (dihitung live dari gold.registry_enriched, BUKAN dari sample). Pakai distinct_known/distinct_total/top sebagai sumber kebenaran:');
+    parts.push(JSON.stringify(dbData.categoricalSummaries));
   }
 
   // Compliance pyramid
@@ -406,13 +425,52 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        dbData = await resolveQueryContext(supabase, dedupedSpecs, {});
+        // Ground-truth RPCs over the FULL gold.registry_enriched table run in
+        // parallel with the sample-based fetches. Their output overrides
+        // sample-derived stats in computeSummaryStats and is surfaced as
+        // dedicated GROUND TRUTH sections in buildDbContextSection.
+        const intentTouchesRegistry = intent.categories.some(
+          (c) => c === 'compliance' || c === 'geography' || c === 'fleet' || c === 'general'
+        );
+        const categoricalCols = detectCategoricalColumns(latestUserMessage);
+
+        const [resolved, globalStats, categoricalSummaries] = await Promise.all([
+          resolveQueryContext(supabase, dedupedSpecs, {}),
+          intentTouchesRegistry
+            ? fetchRegistryGlobalStats(supabase)
+            : Promise.resolve(null),
+          categoricalCols.length > 0
+            ? fetchCategoricalSummaries(supabase, categoricalCols, 50)
+            : Promise.resolve([]),
+        ]);
+
+        dbData = resolved;
+        if (globalStats) {
+          dbData.registryGlobalStats = globalStats;
+          // Override the sample-derived stats produced by computeSummaryStats
+          // (which already ran inside resolveQueryContext) with full-table
+          // ground truth from the RPC.
+          const gs = globalStats as Record<string, unknown>;
+          if (gs.compliancePyramid !== undefined) {
+            dbData.compliancePyramid = gs.compliancePyramid;
+          }
+          if (gs.complianceByKabupaten !== undefined) {
+            dbData.complianceByKabupaten = gs.complianceByKabupaten;
+          }
+          if (typeof gs.total_kendaraan === 'number') {
+            dbData.totalKendaraanInSample = gs.total_kendaraan;
+          }
+        }
+        if (categoricalSummaries.length > 0) dbData.categoricalSummaries = categoricalSummaries;
+
         dbContextSection = buildDbContextSection(dbData);
 
         const tableCount = Object.keys(dbData).filter((k) =>
           k.startsWith('gold.') || k.startsWith('meta.') || k.startsWith('ref.') || k.startsWith('kb.')
         ).length;
-        console.log(`[assistant] Queried ${tableCount} tables successfully`);
+        console.log(
+          `[assistant] Queried ${tableCount} tables, globalStats=${globalStats ? 'yes' : 'no'}, categoricalProbes=[${categoricalCols.join(',')}]`
+        );
       } catch (dbError) {
         console.error("[assistant] DB query failed, falling back to frontend context:", dbError);
         dbContextSection = "\n\n[Database query failed — using frontend context only]";
