@@ -480,6 +480,35 @@ const WARNA_PLAT: { id: string; label: string }[] = [
   { id: 'putih', label: 'Putih (BLE/diplomatik)' },
 ];
 
+// 5 kecamatan Palangka Raya (pilot focus). Other kabupaten kecamatan
+// can be added when expanding beyond the pilot region.
+const KECAMATAN_PALANGKA_RAYA: { id: string; label: string }[] = [
+  { id: 'pahandut', label: 'Pahandut' },
+  { id: 'jekan_raya', label: 'Jekan Raya' },
+  { id: 'sebangau', label: 'Sebangau' },
+  { id: 'bukit_batu', label: 'Bukit Batu' },
+  { id: 'rakumpit', label: 'Rakumpit' },
+];
+
+// 2 SAMSAT UPT yang melayani Palangka Raya (per pilot starter pack rowCount=2).
+const UPT_PALANGKA_RAYA: { id: string; label: string }[] = [
+  { id: '1', label: 'SAMSAT Palangka Raya I' },
+  { id: '2', label: 'SAMSAT Palangka Raya II' },
+];
+
+// Layanan utama (subset dari 23 layanan SAMSAT). Sisanya bisa ditambah
+// kemudian — untuk wizard breakdown, ini sudah cover ~80% kasus.
+const ID_LAYANAN: { id: string; label: string }[] = [
+  { id: 'reg_baru', label: 'Registrasi Baru' },
+  { id: 'perpanjangan_1th', label: 'Perpanjangan Tahunan' },
+  { id: 'perpanjangan_5th', label: 'Perpanjangan 5 Tahun' },
+  { id: 'mutasi_masuk', label: 'Mutasi Masuk' },
+  { id: 'mutasi_keluar', label: 'Mutasi Keluar' },
+  { id: 'balik_nama', label: 'Balik Nama' },
+  { id: 'duplikat', label: 'Duplikat STNK/BPKB' },
+  { id: 'cabut_berkas', label: 'Cabut Berkas' },
+];
+
 export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
   // ── Geographic ─────────────────────────────────────────────────────
   {
@@ -496,24 +525,16 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
     label: 'Kecamatan',
     table: 'gold.registry_fact',
     dataType: 'categorical',
-    // Open enum — populated from registry_fact at query time. Free-text input for now.
+    valuesSource: { kind: 'static', values: KECAMATAN_PALANGKA_RAYA },
     businessViews: ALL_PKB_VIEWS,
-    description: 'Kecamatan domisili kendaraan (text field).',
-  },
-  {
-    id: 'kelurahan',
-    label: 'Kelurahan',
-    table: 'gold.registry_fact',
-    dataType: 'categorical',
-    businessViews: ALL_PKB_VIEWS,
-    description: 'Kelurahan/desa domisili kendaraan (text field).',
+    description: '5 kecamatan Palangka Raya (pilot focus).',
   },
   {
     id: 'upt_id',
     label: 'UPT (SAMSAT)',
     table: 'gold.dim_upt',
     dataType: 'categorical',
-    valuesSource: { kind: 'table', table: 'gold.dim_upt', idCol: 'upt_id', labelCol: 'upt_nama' },
+    valuesSource: { kind: 'static', values: UPT_PALANGKA_RAYA },
     businessViews: ALL_PKB_VIEWS,
     description: 'Unit Pelayanan Teknis SAMSAT.',
   },
@@ -534,14 +555,6 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
     dataType: 'categorical',
     valuesSource: { kind: 'static', values: PKB_JENKEN },
     businessViews: ALL_PKB_VIEWS,
-  },
-  {
-    id: 'merek_kendaraan',
-    label: 'Merek Kendaraan',
-    table: 'gold.registry_fact',
-    dataType: 'categorical',
-    businessViews: ALL_PKB_VIEWS,
-    description: 'Merek/brand kendaraan (text field).',
   },
   {
     id: 'bahan_bakar',
@@ -620,8 +633,9 @@ export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
     label: 'Jenis Layanan',
     table: 'gold.dim_layanan',
     dataType: 'categorical',
-    valuesSource: { kind: 'table', table: 'gold.dim_layanan', idCol: 'id_layanan', labelCol: 'nama_layanan' },
+    valuesSource: { kind: 'static', values: ID_LAYANAN },
     businessViews: ['revenue-arrears', 'treatment-execution'],
+    description: '8 layanan utama SAMSAT (registrasi / perpanjangan / mutasi / balik nama / dst.).',
   },
   {
     id: 'paid_on',
