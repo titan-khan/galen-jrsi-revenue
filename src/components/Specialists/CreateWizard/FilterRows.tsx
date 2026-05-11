@@ -68,70 +68,45 @@ function CategoricalValuePicker({
   const options =
     dim.valuesSource?.kind === 'static' ? dim.valuesSource.values : [];
 
+  // Every categorical dimension in the catalog ships static values, so all
+  // three operator branches render a real picker (no free-text fallback).
   if (operator === 'in') {
     const selected = Array.isArray(value) ? value : [];
     return (
-      <div className="flex flex-wrap gap-1 min-w-[180px] max-w-[320px] p-1.5 border rounded-md bg-background min-h-9">
-        {options.length === 0 ? (
-          <input
-            type="text"
-            value={selected.join(', ')}
-            onChange={(e) =>
-              onChange(
-                e.target.value
-                  .split(',')
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              )
-            }
-            placeholder="comma-separated values"
-            className="flex-1 text-sm bg-transparent border-0 outline-none px-1"
-          />
-        ) : (
-          options.map((opt) => {
-            const isSelected = selected.includes(opt.id);
-            return (
-              <button
-                type="button"
-                key={opt.id}
-                onClick={() =>
-                  onChange(
-                    isSelected
-                      ? selected.filter((v) => v !== opt.id)
-                      : [...selected, opt.id],
-                  )
-                }
-                className={[
-                  'px-2 py-0.5 rounded-full text-xs transition-colors',
+      <div className="flex flex-wrap gap-1 min-w-[200px] max-w-[360px] p-1.5 border rounded-md bg-background min-h-9">
+        {options.map((opt) => {
+          const isSelected = selected.includes(opt.id);
+          return (
+            <button
+              type="button"
+              key={opt.id}
+              onClick={() =>
+                onChange(
                   isSelected
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-muted text-foreground hover:bg-muted/80',
-                ].join(' ')}
-              >
-                {opt.label}
-              </button>
-            );
-          })
-        )}
+                    ? selected.filter((v) => v !== opt.id)
+                    : [...selected, opt.id],
+                )
+              }
+              className={[
+                'px-2 py-0.5 rounded-full text-xs transition-colors',
+                isSelected
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-muted text-foreground hover:bg-muted/80',
+              ].join(' ')}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
     );
   }
 
-  // eq / neq → single select
+  // eq / neq → single Select dropdown
   const scalar = typeof value === 'string' ? value : '';
-  if (options.length === 0) {
-    return (
-      <Input
-        value={scalar}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="value"
-        className="h-9 min-w-[180px]"
-      />
-    );
-  }
   return (
     <Select value={scalar} onValueChange={(v) => onChange(v)}>
-      <SelectTrigger className="h-9 min-w-[180px]">
+      <SelectTrigger className="h-9 min-w-[200px]">
         <SelectValue placeholder="Pilih value" />
       </SelectTrigger>
       <SelectContent>
