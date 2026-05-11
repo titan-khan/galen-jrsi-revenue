@@ -11,7 +11,7 @@
 // case will ever execute — but ALL cases are kept in a single codebase.
 // =============================================================================
 
-import type { QueryContextSpec, QueryScope, SpecialistConfig } from "./types.ts";
+import type { QueryContextSpec, QueryScope, QueryScopeFilter, SpecialistConfig } from "./types.ts";
 
 export const ROLLING_13M_FLOOR = (() => {
   const d = new Date();
@@ -60,7 +60,7 @@ export function applyScopeToSpecs(specs: QueryContextSpec[], scope?: QueryScope)
       }
     }
 
-    // Dimension filters: apply as eq/in filters
+    // Dimension filters: apply as eq/in filters (legacy Record form)
     if (scope.filters) {
       for (const [field, value] of Object.entries(scope.filters)) {
         // Only apply if this table has this column in its select list (or selects *)
@@ -74,6 +74,25 @@ export function applyScopeToSpecs(specs: QueryContextSpec[], scope?: QueryScope)
       }
     }
 
+    // Operator-aware structured filters (new form). Skips silently if the
+    // table doesn't expose the column — caller is responsible for picking
+    // a coherent set of (table, filter) pairs.
+    if (scope.structuredFilters) {
+      for (const f of scope.structuredFilters) {
+        if (!spec.select.includes('*') && !spec.select.includes(f.field)) {
+          console.log(`[scope] skipped filter ${f.field} on ${spec.table}: column not in select`);
+          continue;
+        }
+        // 'between' splits into gte + lte for downstream SQL building
+        if (f.operator === 'between' && f.value && typeof f.value === 'object' && 'min' in f.value) {
+          patched.filters.push({ field: f.field, operator: 'gte', value: f.value.min });
+          patched.filters.push({ field: f.field, operator: 'lte', value: f.value.max });
+        } else {
+          patched.filters.push({ field: f.field, operator: f.operator, value: f.value });
+        }
+      }
+    }
+
     // Dynamic limit override
     if (scope.limit && !spec.limit) {
       patched.limit = scope.limit;
@@ -81,6 +100,33 @@ export function applyScopeToSpecs(specs: QueryContextSpec[], scope?: QueryScope)
 
     return patched;
   });
+}
+
+/** Build a QueryScope from specialist config (monitoringScope.filters) + caller-provided request scope.
+ *  Request-scope filters take precedence: same-field filters from the request override config-level ones. */
+export function buildEffectiveScope(
+  config: SpecialistConfig,
+  requestScope?: QueryScope,
+): QueryScope {
+  const configFilters = config.monitoringScope?.filters ?? [];
+  const configStructured: QueryScopeFilter[] = configFilters.map((f) => ({
+    field: f.dimension,
+    operator: f.operator,
+    value: f.value,
+  }));
+
+  const requestStructured = requestScope?.structuredFilters ?? [];
+  const requestFields = new Set(requestStructured.map((f) => f.field));
+  // Drop config filters whose field is overridden by a request-scope filter
+  const mergedStructured = [
+    ...requestStructured,
+    ...configStructured.filter((f) => !requestFields.has(f.field)),
+  ];
+
+  return {
+    ...(requestScope ?? {}),
+    structuredFilters: mergedStructured,
+  };
 }
 
 export function getQuerySpecsForDomain(

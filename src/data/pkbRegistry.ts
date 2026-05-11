@@ -378,6 +378,219 @@ export function getMetricDomainsForBusinessView(view: BusinessView | string | nu
   return PKB_BUSINESS_VIEW_TO_METRIC_DOMAINS[view] ?? [];
 }
 
+// ─── DIMENSION CATALOG ───────────────────────────────────────────────────────
+//
+// Single source for "what dimensions can a specialist break down by / filter on?"
+// Each entry maps a column id to a display label + dataType + (for categorical
+// dimensions) a list of allowed values. IDs MUST match the actual database
+// column name — applyScopeToSpecs() in the edge function silently skips
+// filters whose field isn't in a table's select list.
+
+export type DimensionDataType = 'categorical' | 'numeric' | 'date';
+
+export type DimensionValuesSource =
+  | { kind: 'static'; values: { id: string; label: string }[] }
+  | { kind: 'table'; table: string; idCol: string; labelCol: string };
+
+export interface DimensionDefinition {
+  /** Column name as it appears in fact tables. */
+  id: string;
+  /** Display label (Bahasa Indonesia for PKB pilot). */
+  label: string;
+  /** Source table for documentation / lineage (schema-qualified). */
+  table: string;
+  dataType: DimensionDataType;
+  /** Allowed values for categorical dims; omitted for numeric/date or unconstrained. */
+  valuesSource?: DimensionValuesSource;
+  /** Which business views surface this dimension in the wizard picker. */
+  businessViews: BusinessView[];
+  /** Optional one-line hint shown in tooltips. */
+  description?: string;
+}
+
+// All 3 PKB business views see the same dimensional catalog (geographic +
+// vehicle + behavior dims are cross-cutting drivers, not view-specific).
+const ALL_PKB_VIEWS: BusinessView[] = [
+  'compliance-health',
+  'revenue-arrears',
+  'treatment-execution',
+];
+
+// 14 kabupaten Kalteng — match gold.dim_kabupaten. IDs are BPS codes.
+const KALTENG_KABUPATEN: { id: string; label: string }[] = [
+  { id: '6201', label: 'Kotawaringin Barat' },
+  { id: '6202', label: 'Kotawaringin Timur' },
+  { id: '6203', label: 'Kapuas' },
+  { id: '6204', label: 'Barito Selatan' },
+  { id: '6205', label: 'Barito Utara' },
+  { id: '6206', label: 'Sukamara' },
+  { id: '6207', label: 'Lamandau' },
+  { id: '6208', label: 'Seruyan' },
+  { id: '6209', label: 'Katingan' },
+  { id: '6210', label: 'Pulang Pisau' },
+  { id: '6211', label: 'Gunung Mas' },
+  { id: '6212', label: 'Barito Timur' },
+  { id: '6213', label: 'Murung Raya' },
+  { id: '6271', label: 'Palangka Raya' },
+];
+
+// 8 jenis kendaraan — match gold.dim_jenken.
+const PKB_JENKEN: { id: string; label: string }[] = [
+  { id: 'MTR', label: 'Sepeda Motor' },
+  { id: 'MPU', label: 'Mobil Penumpang Umum' },
+  { id: 'MPP', label: 'Mobil Penumpang Pribadi' },
+  { id: 'BUS', label: 'Bus' },
+  { id: 'TRK', label: 'Truk' },
+  { id: 'PCP', label: 'Pick-up' },
+  { id: 'KHU', label: 'Kendaraan Khusus' },
+  { id: 'ALT', label: 'Alat Berat' },
+];
+
+const TIPOLOGI_WILAYAH: { id: string; label: string }[] = [
+  { id: 'pusat_urban', label: 'Pusat Urban' },
+  { id: 'hub_industri', label: 'Hub Industri' },
+  { id: 'hinterland', label: 'Hinterland' },
+];
+
+const KANAL_UTAMA: { id: string; label: string }[] = [
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'surat', label: 'Surat Fisik' },
+  { id: 'rt_rw', label: 'RT/RW' },
+  { id: 'samsat_keliling', label: 'SAMSAT Keliling' },
+  { id: 'samsat_loket', label: 'SAMSAT Loket' },
+];
+
+const HAS_PHONE: { id: string; label: string }[] = [
+  { id: 'true', label: 'Ada nomor HP' },
+  { id: 'false', label: 'Tidak ada' },
+];
+
+export const PKB_AVAILABLE_DIMENSIONS: DimensionDefinition[] = [
+  // Geographic
+  {
+    id: 'kabupaten_id',
+    label: 'Kabupaten',
+    table: 'gold.registry_enriched',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: KALTENG_KABUPATEN },
+    businessViews: ALL_PKB_VIEWS,
+    description: '14 kabupaten/kota Kalteng.',
+  },
+  {
+    id: 'upt_id',
+    label: 'UPT (SAMSAT)',
+    table: 'gold.dim_upt',
+    dataType: 'categorical',
+    valuesSource: { kind: 'table', table: 'gold.dim_upt', idCol: 'upt_id', labelCol: 'upt_nama' },
+    businessViews: ALL_PKB_VIEWS,
+    description: 'Unit Pelayanan Teknis SAMSAT.',
+  },
+  {
+    id: 'tipologi_wilayah',
+    label: 'Tipologi Wilayah',
+    table: 'gold.dim_kabupaten',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: TIPOLOGI_WILAYAH },
+    businessViews: ALL_PKB_VIEWS,
+  },
+
+  // Vehicle
+  {
+    id: 'kode_jenken',
+    label: 'Jenis Kendaraan',
+    table: 'gold.registry_enriched',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: PKB_JENKEN },
+    businessViews: ALL_PKB_VIEWS,
+  },
+  {
+    id: 'usia_kendaraan',
+    label: 'Usia Kendaraan (tahun)',
+    table: 'gold.registry_enriched',
+    dataType: 'numeric',
+    businessViews: ALL_PKB_VIEWS,
+  },
+
+  // Compliance behavior
+  {
+    id: 'segmen_kepatuhan',
+    label: 'Segmen Kepatuhan',
+    table: 'gold.registry_enriched',
+    dataType: 'categorical',
+    valuesSource: {
+      kind: 'static',
+      values: PKB_SEGMENTS.map((s) => ({ id: s.kode, label: s.nama })),
+    },
+    businessViews: ALL_PKB_VIEWS,
+    description: '7 segmen Piramida Kepatuhan Pajak (H1, K1, O1, M1, M2, S1, S2).',
+  },
+  {
+    id: 'durasi_tunggakan_days',
+    label: 'Durasi Tunggakan (hari)',
+    table: 'gold.registry_enriched',
+    dataType: 'numeric',
+    businessViews: ALL_PKB_VIEWS,
+  },
+  {
+    id: 'has_phone',
+    label: 'Cakupan Handphone',
+    table: 'gold.registry_enriched',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: HAS_PHONE },
+    businessViews: ['treatment-execution', 'compliance-health'],
+  },
+
+  // Treatment
+  {
+    id: 'treatment_kanal_utama',
+    label: 'Saluran Treatment',
+    table: 'gold.registry_enriched',
+    dataType: 'categorical',
+    valuesSource: { kind: 'static', values: KANAL_UTAMA },
+    businessViews: ['treatment-execution'],
+  },
+
+  // Service / temporal
+  {
+    id: 'id_layanan',
+    label: 'Jenis Layanan',
+    table: 'gold.dim_layanan',
+    dataType: 'categorical',
+    valuesSource: { kind: 'table', table: 'gold.dim_layanan', idCol: 'id_layanan', labelCol: 'nama_layanan' },
+    businessViews: ['revenue-arrears', 'treatment-execution'],
+  },
+  {
+    id: 'paid_on',
+    label: 'Tanggal Bayar',
+    table: 'gold.transaksi_2025',
+    dataType: 'date',
+    businessViews: ['revenue-arrears'],
+  },
+];
+
+export const PKB_DIMENSIONS_BY_ID: Record<string, DimensionDefinition> =
+  Object.fromEntries(PKB_AVAILABLE_DIMENSIONS.map((d) => [d.id, d]));
+
+/** Dimensions surfaced for a given business view (Wizard picker source). */
+export function getDimensionsForBusinessView(
+  view: BusinessView | string | null | undefined,
+): DimensionDefinition[] {
+  if (!view) return [];
+  return PKB_AVAILABLE_DIMENSIONS.filter((d) => d.businessViews.includes(view as BusinessView));
+}
+
+/** Resolve a dimension id → its display label, or echo the id if unknown. */
+export function getDimensionLabel(id: string): string {
+  return PKB_DIMENSIONS_BY_ID[id]?.label ?? id;
+}
+
+/** Resolve a value id → its display label for a dimension (categorical static lookup). */
+export function getDimensionValueLabel(dimensionId: string, valueId: string): string {
+  const def = PKB_DIMENSIONS_BY_ID[dimensionId];
+  if (!def || def.valuesSource?.kind !== 'static') return valueId;
+  return def.valuesSource.values.find((v) => v.id === valueId)?.label ?? valueId;
+}
+
 // ─── USE CASE CATALOG — 8 use cases, 2 per business view, MECE ────────────
 //
 // Each use case answers a DISTINCT question that doesn't overlap with the
@@ -394,11 +607,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     defaultMetrics: [
       { id: 'M-PKB-K01', name: 'Jumlah kendaraan Tidak Patuh Kronis' },
     ],
-    defaultDrivers: [
-      { id: 'segmen', name: 'Segmen Kepatuhan' },
-      { id: 'kabupaten', name: 'Kabupaten' },
-      { id: 'kode_jenken', name: 'Jenis Kendaraan' },
-    ],
+    defaultDimensions: ['segmen_kepatuhan', 'kabupaten_id', 'kode_jenken'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-pyramid-deviation',
@@ -430,11 +640,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     defaultMetrics: [
       { id: 'M-PKB-K02', name: 'Durasi tunggakan rata-rata' },
     ],
-    defaultDrivers: [
-      { id: 'segmen', name: 'Segmen Kepatuhan' },
-      { id: 'usia_kendaraan', name: 'Usia Kendaraan' },
-      { id: 'kabupaten', name: 'Kabupaten' },
-    ],
+    defaultDimensions: ['segmen_kepatuhan', 'usia_kendaraan', 'kabupaten_id'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-ageing-spike',
@@ -466,11 +673,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     description: 'Pantau realisasi PKB & SWDKLLJ bulanan dari gold.transaksi_2025. Jawab: "berapa yang sebenarnya masuk?"',
     businessView: 'revenue-arrears' as BusinessView,
     defaultMetrics: [],
-    defaultDrivers: [
-      { id: 'periode', name: 'Periode (bulan)' },
-      { id: 'kabupaten', name: 'Kabupaten' },
-      { id: 'kode_jenken', name: 'Jenis Kendaraan' },
-    ],
+    defaultDimensions: ['paid_on', 'kabupaten_id', 'kode_jenken'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-realization-drop',
@@ -492,11 +696,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     defaultMetrics: [
       { id: 'M-PKB-K03', name: 'Estimasi PKB tertunggak segmen kronis' },
     ],
-    defaultDrivers: [
-      { id: 'scenario', name: 'Skenario Revenue' },
-      { id: 'segmen', name: 'Segmen Kepatuhan' },
-      { id: 'kabupaten', name: 'Kabupaten' },
-    ],
+    defaultDimensions: ['segmen_kepatuhan', 'kabupaten_id'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-scenario-gap',
@@ -520,11 +721,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     defaultMetrics: [
       { id: 'M-PKB-K01', name: 'Jumlah kendaraan Tidak Patuh Kronis' },
     ],
-    defaultDrivers: [
-      { id: 'has_phone', name: 'Cakupan nomor handphone' },
-      { id: 'kanal', name: 'Saluran (kanal_utama)' },
-      { id: 'segmen', name: 'Segmen Kepatuhan' },
-    ],
+    defaultDimensions: ['has_phone', 'treatment_kanal_utama', 'segmen_kepatuhan'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-phone-coverage',
@@ -544,11 +742,8 @@ export const PKB_USE_CASE_CATALOG: UseCase[] = [
     description: 'Pantau adopsi 9 program SADAR (registrasi, amnesti, enforcement) + akuntabilitas RACI antar-stakeholder. Jawab: "apakah program berjalan, siapa yang accountable?"',
     businessView: 'treatment-execution' as BusinessView,
     defaultMetrics: [],
-    defaultDrivers: [
-      { id: 'program', name: 'Program SADAR' },
-      { id: 'stakeholder', name: 'Stakeholder (R/A/C/I)' },
-      { id: 'tipologi', name: 'Tipologi Wilayah' },
-    ],
+    defaultDimensions: ['tipologi_wilayah', 'kabupaten_id'],
+    defaultDrivers: [],
     defaultRules: [
       {
         id: 'rule-program-stuck',

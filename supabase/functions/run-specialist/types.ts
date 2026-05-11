@@ -19,8 +19,24 @@ export interface QueryContextSpec {
 
 export interface QueryScope {
   time?: { start?: string; end?: string };
+  /** Legacy simple eq/in filters as a Record. Preserved for backward compat. */
   filters?: Record<string, unknown>;
+  /** Operator-aware structured filters. Preferred for new callers. */
+  structuredFilters?: QueryScopeFilter[];
   limit?: number;
+}
+
+/**
+ * Operator-aware filter applied to query specs.
+ *
+ * NOTE: This mirrors the `MonitoringFilter` type in
+ * `src/types/specialist.ts`. Edge functions (Deno) can't import from src/,
+ * so the type is duplicated. Keep them in sync.
+ */
+export interface QueryScopeFilter {
+  field: string;
+  operator: 'eq' | 'in' | 'neq' | 'gte' | 'lte' | 'between';
+  value: string | number | string[] | { min: string | number; max: string | number };
 }
 
 // ─── Funnel Pipeline ────────────────────────────────────────────────
@@ -182,6 +198,12 @@ export interface SpecialistConfig {
   monitoringScope?: {
     metrics?: string[];
     dimensions?: string[];
+    filters?: Array<{
+      id: string;
+      dimension: string;
+      operator: 'eq' | 'in' | 'neq' | 'gte' | 'lte' | 'between';
+      value: string | string[] | { min: string; max: string };
+    }>;
   };
   monitoringRules?: MonitoringRule[];
   knowledgeContext?: KnowledgeContextConfig | null;

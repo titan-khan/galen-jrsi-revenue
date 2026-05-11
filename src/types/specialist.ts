@@ -190,12 +190,28 @@ export interface SpecialistPerformance {
   approvalRate: number;
 }
 
+// Scope-level filter applied to a specialist's monitoring queries.
+// Distinct from MetricFilter in `metric.ts` (which is per-metric-definition).
+// MonitoringFilter constrains every metric the specialist watches.
+//
+// NOTE: A mirror of this type lives at
+// `supabase/functions/run-specialist/types.ts` because the Deno edge function
+// can't import from src/. Keep them in sync.
+export interface MonitoringFilter {
+  id: string;
+  /** Dimension id — must match a DimensionDefinition.id from pkbRegistry. */
+  dimension: string;
+  operator: 'eq' | 'in' | 'neq' | 'gte' | 'lte' | 'between';
+  value: string | string[] | { min: string; max: string };
+}
+
 // Monitoring scope configuration
 export interface MonitoringScope {
   dataSources: string[];
   refreshRate: string;
   metrics: string[];
   dimensions?: string[];
+  filters?: MonitoringFilter[];
 }
 
 // Main Specialist interface
@@ -305,13 +321,19 @@ export type BusinessView =
   | 'cause-analysis'
   | 'data-quality';
 
-// Use Case definition — auto-generates metrics & rules
+// Use Case definition — auto-generates metrics, dimensions & rules.
+//
+// defaultDimensions = breakdown axes (e.g. 'kabupaten_id', 'segmen_kepatuhan')
+//   → ids in PKB_AVAILABLE_DIMENSIONS, populate monitoringScope.dimensions
+// defaultDrivers = true driver metrics (other measures suspected to move the
+//   monitored metric — NOT grouping axes)
 export interface UseCase {
   id: string;
   name: string;
   description: string;
   businessView: BusinessView;
   defaultMetrics: MetricConfig[];
+  defaultDimensions?: string[];
   defaultDrivers: MetricConfig[];
   defaultRules: Partial<MonitoringRule>[];
 }

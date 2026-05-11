@@ -3,8 +3,10 @@ import { Check, TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Info
 import { useMetrics } from '@/contexts/MetricsContext';
 import { SVGSparkline } from '@/components/MetricHub/SVGSparkline';
 import { MetricChips } from './MetricChips';
+import { DimensionChips } from './DimensionChips';
+import { FilterRows } from './FilterRows';
 import { cn } from '@/lib/utils';
-import type { BusinessView, MetricConfig, Specialist } from '@/types/specialist';
+import type { BusinessView, MetricConfig, MonitoringFilter, Specialist } from '@/types/specialist';
 import type { MetricDefinition, AISuggestionItem, AISummaryData } from '@/types/metric';
 // Single source of truth — adding a new PKB business view only requires
 // touching pkbRegistry.ts, not every wizard step that filters by domain.
@@ -74,6 +76,10 @@ interface MonitoringScopeStepProps {
   onMetricsChange: (metrics: MetricConfig[]) => void;
   drivers: MetricConfig[];
   onDriversChange: (drivers: MetricConfig[]) => void;
+  dimensions: string[];
+  onDimensionsChange: (dimensions: string[]) => void;
+  filters: MonitoringFilter[];
+  onFiltersChange: (filters: MonitoringFilter[]) => void;
   aiSuggestions?: AISuggestionItem[];
   aiSummary?: AISummaryData | null;
   metricsOverlapMatch?: Specialist | null;
@@ -92,6 +98,10 @@ export const MonitoringScopeStep = ({
   onMetricsChange,
   drivers,
   onDriversChange,
+  dimensions,
+  onDimensionsChange,
+  filters,
+  onFiltersChange,
   aiSuggestions = [],
   aiSummary = null,
   metricsOverlapMatch = null,
@@ -444,14 +454,36 @@ export const MonitoringScopeStep = ({
         />
       </div>
 
-      {/* ── Key Drivers (optional) ───────────────────────────────────── */}
+      {/* ── Key Driver Metrics (optional) ────────────────────────────── */}
       <div className="border-t border-border/40 pt-6">
         <MetricChips
-          label="Key Drivers"
-          sublabel="Optional — add metrics that drive the monitored KPIs"
+          label="Key Driver Metrics"
+          sublabel="Optional — metrik lain yang dianggap menggerakkan KPI utama (bukan dimensi)"
           metrics={drivers}
           onChange={onDriversChange}
           accentColor="bg-violet-500/10 text-violet-600"
+        />
+      </div>
+
+      {/* ── Breakdown Dimensions ─────────────────────────────────────── */}
+      <div className="border-t border-border/40 pt-6">
+        <DimensionChips
+          label="Breakdown Dimensions"
+          sublabel="Pilih dimensi untuk pecah/grouping metrik (misal: per kabupaten, per segmen kepatuhan)"
+          businessView={businessView}
+          dimensions={dimensions}
+          onChange={onDimensionsChange}
+        />
+      </div>
+
+      {/* ── Scope Filters (optional) ─────────────────────────────────── */}
+      <div className="border-t border-border/40 pt-6">
+        <FilterRows
+          label="Scope Filters"
+          sublabel="Optional — batasi monitoring ke subset data tertentu (misal: hanya kabupaten Palangka Raya)"
+          businessView={businessView}
+          filters={filters}
+          onChange={onFiltersChange}
         />
       </div>
     </div>
