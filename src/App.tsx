@@ -37,6 +37,18 @@ const DataConnector = lazy(() => import("./pages/DataConnector"));
 const CsvUpload = lazy(() => import("./pages/CsvUpload"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Research = lazy(() => import("./pages/Research"));
+const RiskLensWorklist = lazy(() => import("./pages/RiskLensWorklist"));
+const RiskLensDetail = lazy(() => import("./pages/RiskLensDetail"));
+const RiskLensEvidence = lazy(() => import("./pages/RiskLensEvidence"));
+const RiskLensPipeline = lazy(() => import("./pages/RiskLensPipeline"));
+const RiskLensSignalTrace = lazy(() => import("./pages/RiskLensSignalTrace"));
+const RiskLensSourceConnector = lazy(() => import("./pages/RiskLensSourceConnector"));
+const RiskLensCostDashboard = lazy(() => import("./pages/RiskLensCostDashboard"));
+const RiskLensActiveDiscovery = lazy(() => import("./pages/RiskLensActiveDiscovery"));
+const BriefStep1Intent = lazy(() => import("./pages/BriefStep1Intent"));
+const BriefStep2Sources = lazy(() => import("./pages/BriefStep2Sources"));
+const BriefStep3Readiness = lazy(() => import("./pages/BriefStep3Readiness"));
 const CacheDashboard = lazy(() => import("./components/Debug/CacheDashboard").then(m => ({ default: m.CacheDashboard })));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Login = lazy(() => import("./pages/Login"));
@@ -126,6 +138,21 @@ const App = () => {
                 <Route path="/data-connector" element={<DataConnector />} />
                 <Route path="/data-connector/csv-upload" element={<CsvUpload />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/research" element={<Research />} />
+                <Route path="/research/risk-lens" element={<RiskLensWorklist />} />
+                <Route path="/research/risk-lens/:eventId" element={<RiskLensDetail />} />
+                <Route path="/research/risk-lens/:eventId/evidence" element={<RiskLensEvidence />} />
+                <Route path="/research/risk-lens/pipeline" element={<RiskLensPipeline />} />
+                <Route path="/research/risk-lens/pipeline/signal-trace" element={<RiskLensSignalTrace />} />
+                <Route path="/research/risk-lens/pipeline/connector/:sourceId" element={<RiskLensSourceConnector />} />
+                <Route path="/research/risk-lens/pipeline/cost" element={<RiskLensCostDashboard />} />
+                <Route path="/research/risk-lens/pipeline/discovery" element={<RiskLensActiveDiscovery />} />
+                <Route path="/research/monitor/new" element={<BriefStep1Intent />} />
+                <Route path="/research/monitor/new/sources" element={<BriefStep2Sources />} />
+                <Route path="/research/monitor/new/readiness" element={<BriefStep3Readiness />} />
+                {/* Investigation is handled by /assistant — see Research hub */}
+                <Route path="/research/investigate" element={<Navigate to="/assistant" replace />} />
+                <Route path="/research/investigate/*" element={<Navigate to="/assistant" replace />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/debug/cache" element={<DevOnly><CacheDashboard /></DevOnly>} />

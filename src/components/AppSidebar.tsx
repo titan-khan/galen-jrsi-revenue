@@ -6,7 +6,8 @@ import {
   MessageCircle,
   LogOut,
   FileText,
-  Database
+  Database,
+  Telescope
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -32,11 +33,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserInitials, getUserDisplayName } from "@/lib/auth-utils";
+import { WORKLIST_STATS } from "@/data/riskLensData";
 
-const mainMenuItems = [
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: typeof Home;
+  badge?: number | null;
+};
+
+const mainMenuItems: MenuItem[] = [
   { title: "Home", url: "/", icon: Home },
   { title: "Assistant", url: "/assistant", icon: MessageCircle },
-   { title: "Specialists", url: "/specialists", icon: Users },
+  { title: "Research", url: "/research", icon: Telescope, badge: WORKLIST_STATS.high },
+  { title: "Specialists", url: "/specialists", icon: Users },
   { title: "Metrics", url: "/metrics", icon: BarChart3 },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: `Connector`, url: "/data-connector", icon: Database },
@@ -82,7 +92,17 @@ export function AppSidebar() {
                       to={item.url}
                       className="flex flex-col items-center justify-center gap-1"
                     >
-                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="relative">
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        {item.badge != null && item.badge > 0 && (
+                          <span
+                            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold leading-none"
+                            aria-label={`${item.badge} new`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </span>
                       <span className="text-[10px] text-center break-words">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>

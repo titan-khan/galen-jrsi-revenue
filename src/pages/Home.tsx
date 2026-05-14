@@ -1,5 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
-import { AlertTriangle, Users, TrendingUp, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Users, TrendingUp, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { RISK_EVENTS, WORKLIST_STATS } from '@/data/riskLensData';
 import { useSpecialists } from '@/contexts/SpecialistsContext';
 import { useMetrics } from '@/contexts/MetricsContext';
 import { useHomeData } from '@/hooks/useHomeData';
@@ -121,6 +124,47 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left Column - Lists */}
           <div className="lg:col-span-3 space-y-6">
+            {/* Risk Lens — coupling events needing triage */}
+            <div>
+              <SectionHeader
+                icon={<ShieldAlert className="h-4 w-4 text-destructive" />}
+                title="Research alerts"
+                viewAllPath="/research/risk-lens"
+              />
+              <div className="border rounded-lg bg-card divide-y divide-border">
+                {RISK_EVENTS.slice(0, 4).map((event) => (
+                  <Link
+                    key={event.id}
+                    to={`/research/risk-lens/${event.id}`}
+                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent/50 transition-colors group"
+                  >
+                    <span className="font-mono text-base font-bold tabular-nums text-destructive shrink-0 w-12">
+                      {event.priorityScore.toFixed(2)}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="border-destructive/40 text-destructive text-[10px] shrink-0"
+                    >
+                      {event.severity}
+                    </Badge>
+                    <span className="flex-1 text-sm text-foreground truncate min-w-0">
+                      {event.title}
+                    </span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {event.detectedAgo.replace(' ago', '')}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
+                ))}
+                <div className="px-3 py-2 text-[11px] text-muted-foreground flex items-center gap-2">
+                  <span>
+                    {WORKLIST_STATS.open} open · {WORKLIST_STATS.high} high · {WORKLIST_STATS.medium} medium
+                  </span>
+                  <span className="ml-auto">last refresh {WORKLIST_STATS.lastRefresh}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Insight Updates */}
             {/* <div>
               <SectionHeader
