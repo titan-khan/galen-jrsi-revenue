@@ -4,12 +4,10 @@
 export type Severity = 'HIGH' | 'MED' | 'LOW' | 'CRIT';
 export type EventStatus =
   | 'NEW'
-  | 'ACK'
-  | 'IN_PROGRESS'
+  | 'WORKING'
   | 'SNOOZED'
-  | 'ESCALATED'
-  | 'RESOLVED'
-  | 'DISMISSED';
+  | 'PENDING_APPROVAL'
+  | 'CLOSED';
 export type MAMResponse = 'AVOID' | 'REDUCE' | 'TRANSFER' | 'ACCEPT';
 
 export interface ProvenanceItem {
@@ -18,6 +16,9 @@ export interface ProvenanceItem {
   credibility: number;
   headline: string;
   url?: string;
+  articleFingerprint?: string;
+  reprintCount?: number;
+  reprintSources?: string[];
 }
 
 export interface InternalCase {
@@ -65,6 +66,7 @@ export interface AmplifierActor {
 export interface MAMRecommendation {
   response: MAMResponse;
   action: string;
+  actionLabel: string;
   executor: string;
   slaWindow: string;
   rationale: string;
@@ -183,6 +185,9 @@ const jambiEvent: RiskEvent = {
       credibility: 0.75,
       headline:
         'Kasus santunan Jambi: keluarga korban kembali bersuara setelah lebih dari setahun',
+      articleFingerprint: 'jambi-claim-487d-2026-05-14',
+      reprintCount: 3,
+      reprintSources: ['Antara', 'Tribun Jambi', 'Kompas regional'],
     },
     {
       source: 'X',
@@ -206,7 +211,7 @@ const jambiEvent: RiskEvent = {
     ageDays: 487,
     slaText: '90d · breach 5.4×',
     slaBreach: true,
-    status: 'ACK',
+    status: 'WORKING',
     lastAction: 'document review · 142 days ago',
   },
   internalBindingNote: 'binding: claim_case_age · fresh 18m',
@@ -252,10 +257,11 @@ const jambiEvent: RiskEvent = {
   mam: {
     response: 'AVOID',
     action: 'preemptive_disbursement_review',
+    actionLabel: 'Tinjauan pencairan preventif',
     executor: 'claims_operations_manager · Jambi region',
     slaWindow: '1–3 days',
     rationale:
-      'claimant identity public, amplifier credibility high (0.85), case is operationally resolvable within SLA',
+      'claimant identity public, voice-of-reach credibility high (0.85), case is operationally resolvable within SLA',
     requiresApproval: true,
   },
   scoreFactors: [
@@ -355,6 +361,9 @@ const krlBekasiEvent: RiskEvent = {
       when: '1h ago',
       credibility: 0.75,
       headline: '16 korban kecelakaan KRL Bekasi · daftar santunan dibuka',
+      articleFingerprint: 'krl-bekasi-2026-05-14-incident',
+      reprintCount: 2,
+      reprintSources: ['Antara', 'Tempo regional'],
     },
     {
       source: 'Kompas.id',
@@ -417,6 +426,7 @@ const krlBekasiEvent: RiskEvent = {
   mam: {
     response: 'REDUCE',
     action: 'mass_casualty_fasttrack',
+    actionLabel: 'Fast-track santunan · korban massal',
     executor: 'regional_ops_director · Jawa Barat',
     slaWindow: '24h',
     rationale:
@@ -476,7 +486,7 @@ const sumselDenialEvent: RiskEvent = {
   detectedAgo: '1d ago',
   eventType: 'claim_denial_dispute',
   severity: 'HIGH',
-  status: 'ACK',
+  status: 'WORKING',
   priorityScore: 0.71,
   severityScore: 0.68,
   momentumPct: 15,
@@ -524,7 +534,7 @@ const sumselDenialEvent: RiskEvent = {
     ageDays: 38,
     slaText: '30d · breach 1.3×',
     slaBreach: true,
-    status: 'ACK',
+    status: 'WORKING',
     lastAction: 'denial reviews · ongoing',
   },
   internalBindingNote: 'binding: denial_records · fresh 1h',
@@ -550,6 +560,7 @@ const sumselDenialEvent: RiskEvent = {
   mam: {
     response: 'REDUCE',
     action: 'denial_review_panel',
+    actionLabel: 'Panel tinjauan penolakan klaim',
     executor: 'regional_legal_lead · Sumsel',
     slaWindow: '5 days',
     rationale: 'volume sufficient to merit panel review; advocacy actor credible',
@@ -669,6 +680,7 @@ const ojkQueryEvent: RiskEvent = {
   mam: {
     response: 'TRANSFER',
     action: 'regulator_response_package',
+    actionLabel: 'Paket respons regulator',
     executor: 'corporate_secretary',
     slaWindow: '14 days',
     rationale:
@@ -735,7 +747,7 @@ export const MED_STUB_EVENTS: WorklistStubEvent[] = [
     id: 'surabaya-disbursement-delay',
     priorityScore: 0.54,
     severity: 'MED',
-    status: 'IN_PROGRESS',
+    status: 'WORKING',
     title: 'Disbursement delay · Surabaya',
     ageText: '8h',
     summary: 'single case amplified · local press',
@@ -744,7 +756,7 @@ export const MED_STUB_EVENTS: WorklistStubEvent[] = [
     id: 'fraud-multi-claim-cluster',
     priorityScore: 0.51,
     severity: 'MED',
-    status: 'ACK',
+    status: 'WORKING',
     title: 'Fraud indicator · multi-claim cluster',
     ageText: '5h',
     summary: 'internal flag · no external coverage yet',
@@ -780,7 +792,7 @@ export const MED_STUB_EVENTS: WorklistStubEvent[] = [
     id: 'portal-complaints-aggregator',
     priorityScore: 0.34,
     severity: 'MED',
-    status: 'ACK',
+    status: 'WORKING',
     title: 'Claim portal complaints · aggregator',
     ageText: '1d',
     summary: 'OJK aggregator · 7 complaints',
@@ -817,3 +829,77 @@ export const DEGRADED_SOURCES = {
   count: 2,
   detail: 'Tribun regional · down · 14h. Affects regional outage detection.',
 } as const;
+
+// --- Sentiment analysis of news coverage (derived from external corpus) ---
+export const SENTIMENT_BREAKDOWN = {
+  sampleSize: 100,
+  windowLabel: '7 hari terakhir',
+  positif: 26,
+  netral: 58,
+  negatif: 16,
+  dominantTone: 'netral' as const,
+  dominantCaption: 'Sebagian besar berita bersifat informatif/prosedural',
+  negativeThemes: [
+    { label: 'Keterlambatan pencairan santunan', pct: 38 },
+    { label: 'Penolakan klaim cacat tetap', pct: 29 },
+    { label: 'Birokrasi dokumen yang rumit', pct: 22 },
+    { label: 'Besaran santunan tidak memadai', pct: 11 },
+  ],
+} as const;
+
+// --- Mock approval workflow store (UI-only) ---
+
+export type ApprovalState = 'pending' | 'approved' | 'rejected';
+
+export interface ApprovalRequest {
+  eventId: string;
+  requestedBy: string;
+  approverRole: string;
+  approverName: string;
+  justification: string;
+  requestedAt: string;
+  state: ApprovalState;
+}
+
+const approvalStore = new Map<string, ApprovalRequest>();
+const approvalListeners = new Set<() => void>();
+
+function notifyApprovalListeners() {
+  approvalListeners.forEach((fn) => fn());
+}
+
+export function submitForApproval(req: Omit<ApprovalRequest, 'requestedAt' | 'state'>) {
+  approvalStore.set(req.eventId, {
+    ...req,
+    requestedAt: new Date().toLocaleString('id-ID'),
+    state: 'pending',
+  });
+  notifyApprovalListeners();
+}
+
+export function decideApproval(eventId: string, decision: 'approved' | 'rejected') {
+  const existing = approvalStore.get(eventId);
+  if (existing) {
+    approvalStore.set(eventId, { ...existing, state: decision });
+    notifyApprovalListeners();
+  }
+}
+
+export function getApproval(eventId: string): ApprovalRequest | undefined {
+  return approvalStore.get(eventId);
+}
+
+export function listApprovals(): ApprovalRequest[] {
+  return Array.from(approvalStore.values());
+}
+
+export function subscribeApprovals(fn: () => void): () => void {
+  approvalListeners.add(fn);
+  return () => approvalListeners.delete(fn);
+}
+
+export const APPROVERS = [
+  { id: 'sari-hartono', name: 'Sari Hartono', role: 'Head of Claims Ops' },
+  { id: 'bambang-wijaya', name: 'Bambang Wijaya', role: 'Chief Risk Officer' },
+  { id: 'rina-pratiwi', name: 'Rina Pratiwi', role: 'Director · Public Affairs' },
+] as const;

@@ -9,7 +9,8 @@ interface RiskLensShellProps {
 }
 
 const TABS = [
-  { id: 'worklist', label: 'Worklist', href: '/research/risk-lens' },
+  { id: 'overview', label: 'Ringkasan', href: '/research/risk-lens' },
+  { id: 'worklist', label: 'Worklist', href: '/research/risk-lens/worklist' },
   { id: 'sources', label: 'Sources', href: '/research/risk-lens/pipeline' },
   { id: 'cost', label: 'Cost', href: '/research/risk-lens/pipeline/cost' },
   { id: 'trace', label: 'Trace', href: '/research/risk-lens/pipeline/signal-trace' },
@@ -30,7 +31,7 @@ function matchesTab(pathname: string, href: string): boolean {
 
 export function RiskLensShell({ children }: RiskLensShellProps) {
   const { pathname } = useLocation();
-  const activeId = TABS.find((t) => matchesTab(pathname, t.href))?.id ?? 'worklist';
+  const activeId = TABS.find((t) => matchesTab(pathname, t.href))?.id ?? 'overview';
 
   return (
     <div className="flex flex-col flex-1 min-h-0">

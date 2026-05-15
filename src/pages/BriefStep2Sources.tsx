@@ -31,7 +31,7 @@ const BriefStep2Sources = () => {
     <div className="flex flex-col flex-1 min-h-0">
       <WizardStepHeader
         step={2}
-        title="Where should we pull from?"
+        title="Sumber data mana yang ditarik?"
         backHref="/research/monitor/new"
         backLabel="Brief"
         nextHref="/research/monitor/new/readiness"

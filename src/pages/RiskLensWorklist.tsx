@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
@@ -6,17 +7,24 @@ import {
   SlidersHorizontal,
   ArrowUpDown,
   Download,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
 import { SeverityBadge } from '@/components/RiskLens/SeverityBadge';
 import { WorklistRow } from '@/components/RiskLens/WorklistRow';
 import { DegradedSourcesBanner } from '@/components/RiskLens/DegradedSourcesBanner';
 import { RiskLensShell } from '@/components/RiskLens/RiskLensShell';
-import { RISK_EVENTS, MED_STUB_EVENTS, WORKLIST_STATS } from '@/data/riskLensData';
+import {
+  RISK_EVENTS,
+  MED_STUB_EVENTS,
+  WORKLIST_STATS,
+  listApprovals,
+  subscribeApprovals,
+} from '@/data/riskLensData';
 
 interface SeverityGroupHeaderProps {
   level: 'HIGH' | 'MED' | 'LOW';
@@ -45,6 +53,15 @@ const RiskLensWorklist = () => {
   const [highOpen, setHighOpen] = useState(true);
   const [medOpen, setMedOpen] = useState(false);
   const [lowOpen, setLowOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(
+    () => listApprovals().filter((a) => a.state === 'pending').length,
+  );
+
+  useEffect(() => {
+    return subscribeApprovals(() => {
+      setPendingCount(listApprovals().filter((a) => a.state === 'pending').length);
+    });
+  }, []);
 
   const highEvents = RISK_EVENTS.filter((e) => e.severity === 'HIGH').filter(
     (e) => !search || e.title.toLowerCase().includes(search.toLowerCase()),
@@ -60,7 +77,7 @@ const RiskLensWorklist = () => {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search events…"
+              placeholder="Cari kejadian…"
               className="pl-8 h-9 bg-background"
             />
           </div>
@@ -70,22 +87,22 @@ const RiskLensWorklist = () => {
           </Button>
           <Button variant="outline" size="sm">
             <ArrowUpDown className="mr-1.5 h-3.5 w-3.5" />
-            Sort: priority
+            Urut: prioritas
           </Button>
           <Button variant="outline" size="sm">
             <Download className="mr-1.5 h-3.5 w-3.5" />
-            Export
+            Ekspor
           </Button>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             <span>
-              <span className="font-semibold text-foreground">{WORKLIST_STATS.open}</span> open
+              <span className="font-semibold text-foreground">{WORKLIST_STATS.open}</span> terbuka
             </span>
             <span aria-hidden>·</span>
             <span>
-              <span className="font-semibold text-destructive">{WORKLIST_STATS.high}</span> high
+              <span className="font-semibold text-destructive">{WORKLIST_STATS.high}</span> tinggi
             </span>
             <span>
-              <span className="font-semibold text-amber-700">{WORKLIST_STATS.medium}</span> medium
+              <span className="font-semibold text-amber-700">{WORKLIST_STATS.medium}</span> menengah
             </span>
             <Badge
               variant="outline"
@@ -99,11 +116,27 @@ const RiskLensWorklist = () => {
 
         <DegradedSourcesBanner />
 
+        {pendingCount > 0 && (
+          <Link
+            to="/research/risk-lens/approvals"
+            className="flex items-center gap-3 rounded-md border border-violet-500/40 bg-violet-500/10 px-3.5 py-2.5 text-sm hover:bg-violet-500/15"
+          >
+            <ShieldCheck className="h-4 w-4 text-violet-700" />
+            <span className="text-foreground">
+              <span className="font-semibold text-violet-700">{pendingCount}</span> tindakan
+              menunggu persetujuan
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1 text-xs text-violet-700">
+              Buka inbox <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </Link>
+        )}
+
         <section className="space-y-4">
           <Collapsible open={highOpen} onOpenChange={setHighOpen}>
             <SeverityGroupHeader
               level="HIGH"
-              label="HIGH severity"
+              label="Severity TINGGI"
               count={highEvents.length}
               open={highOpen}
             />
@@ -132,7 +165,7 @@ const RiskLensWorklist = () => {
           <Collapsible open={medOpen} onOpenChange={setMedOpen}>
             <SeverityGroupHeader
               level="MED"
-              label="MEDIUM severity"
+              label="Severity MENENGAH"
               count={MED_STUB_EVENTS.length}
               open={medOpen}
             />
@@ -158,17 +191,17 @@ const RiskLensWorklist = () => {
                 </ul>
               ) : (
                 <p className="px-2 text-xs text-muted-foreground italic">
-                  {MED_STUB_EVENTS.length} medium events collapsed — claim disputes, regional press
-                  mentions, social activity below amplifier threshold
+                  {MED_STUB_EVENTS.length} event menengah · sengketa klaim, mention press regional,
+                  aktivitas sosial di bawah threshold voice-of-reach
                 </p>
               )}
             </CollapsibleContent>
           </Collapsible>
 
           <Collapsible open={lowOpen} onOpenChange={setLowOpen}>
-            <SeverityGroupHeader level="LOW" label="LOW severity" count={0} open={lowOpen} />
+            <SeverityGroupHeader level="LOW" label="Severity RENDAH" count={0} open={lowOpen} />
             <CollapsibleContent className="pt-2">
-              <p className="px-2 text-xs text-muted-foreground italic">none</p>
+              <p className="px-2 text-xs text-muted-foreground italic">tidak ada</p>
             </CollapsibleContent>
           </Collapsible>
         </section>

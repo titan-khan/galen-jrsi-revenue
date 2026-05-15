@@ -164,24 +164,28 @@ export interface SourceCandidate {
   language: string;
   status: SourceStatus;
   on: boolean;
+  residency: 'ID' | 'SG' | 'US';
+  comingSoon?: boolean;
 }
 
 export const SOURCE_CANDIDATES: SourceCandidate[] = [
   // Social
-  { id: 'x', category: 'social', name: 'X firehose', adapter: 'XStreamAdapter', tier: 3, credibility: 0.4, coverage: 92, costLabel: '$3.4k', language: 'id, en', status: 'recommended', on: true },
-  { id: 'tiktok', category: 'social', name: 'TikTok aggregator', adapter: 'TikTokAggAdapter', tier: 2, credibility: 0.55, coverage: 71, costLabel: '$1.8k', language: 'id', status: 'recommended', on: true },
-  { id: 'instagram', category: 'social', name: 'Instagram public', adapter: 'IGPublicAdapter', tier: 2, credibility: 0.5, coverage: 48, costLabel: '$1.2k', language: 'id', status: 'optional', on: false },
-  { id: 'youtube', category: 'social', name: 'YouTube comments', adapter: 'YTCommentAdapter', tier: 2, credibility: 0.45, coverage: 32, costLabel: '$680', language: 'id', status: 'limited', on: false },
+  { id: 'x', category: 'social', name: 'X firehose', adapter: 'XStreamAdapter', tier: 3, credibility: 0.4, coverage: 92, costLabel: '$3.4k', language: 'id, en', status: 'recommended', on: true, residency: 'SG' },
+  { id: 'tiktok', category: 'social', name: 'TikTok aggregator', adapter: 'TikTokAggAdapter', tier: 2, credibility: 0.55, coverage: 71, costLabel: '$1.8k', language: 'id', status: 'recommended', on: true, residency: 'SG' },
+  { id: 'instagram', category: 'social', name: 'Instagram public', adapter: 'IGPublicAdapter', tier: 2, credibility: 0.5, coverage: 48, costLabel: '$1.2k', language: 'id', status: 'optional', on: false, residency: 'US' },
+  { id: 'youtube', category: 'social', name: 'YouTube comments', adapter: 'YTCommentAdapter', tier: 2, credibility: 0.45, coverage: 32, costLabel: '$680', language: 'id', status: 'limited', on: false, residency: 'US' },
+  { id: 'wa-groups', category: 'social', name: 'WhatsApp Groups (opt-in)', adapter: 'WAGroupAdapter', tier: 2, credibility: 0.6, coverage: 0, costLabel: '—', language: 'id', status: 'limited', on: false, residency: 'ID', comingSoon: true },
+  { id: 'fb-pages', category: 'social', name: 'Facebook Pages', adapter: 'FBPageAdapter', tier: 2, credibility: 0.55, coverage: 0, costLabel: '—', language: 'id', status: 'limited', on: false, residency: 'US', comingSoon: true },
   // News
-  { id: 'detik', category: 'news', name: 'Detik.com', adapter: 'news_api', tier: 1, credibility: 0.78, coverage: 84, costLabel: '$620', language: 'id', status: 'recommended', on: true },
-  { id: 'kompas', category: 'news', name: 'Kompas.com', adapter: 'news_api', tier: 1, credibility: 0.82, coverage: 78, costLabel: '$440', language: 'id', status: 'recommended', on: true },
-  { id: 'tribun', category: 'news', name: 'Tribun network', adapter: 'rss + scraper', tier: 1, credibility: 0.65, coverage: 65, costLabel: '$105', language: 'id', status: 'recommended', on: true },
-  { id: 'tempo', category: 'news', name: 'Tempo', adapter: 'news_api', tier: 1, credibility: 0.85, coverage: 42, costLabel: '$240', language: 'id', status: 'optional', on: false },
+  { id: 'detik', category: 'news', name: 'Detik.com', adapter: 'news_api', tier: 1, credibility: 0.78, coverage: 84, costLabel: '$620', language: 'id', status: 'recommended', on: true, residency: 'ID' },
+  { id: 'kompas', category: 'news', name: 'Kompas.com', adapter: 'news_api', tier: 1, credibility: 0.82, coverage: 78, costLabel: '$440', language: 'id', status: 'recommended', on: true, residency: 'ID' },
+  { id: 'tribun', category: 'news', name: 'Tribun network', adapter: 'rss + scraper', tier: 1, credibility: 0.65, coverage: 65, costLabel: '$105', language: 'id', status: 'recommended', on: true, residency: 'ID' },
+  { id: 'tempo', category: 'news', name: 'Tempo', adapter: 'news_api', tier: 1, credibility: 0.85, coverage: 42, costLabel: '$240', language: 'id', status: 'optional', on: false, residency: 'ID' },
   // Regulatory
-  { id: 'ojk', category: 'regulatory', name: 'OJK consumer feed', adapter: 'ojk_feed', tier: 0, credibility: 0.95, coverage: 28, costLabel: 'free', language: 'id', status: 'recommended', on: true },
-  { id: 'korlantas', category: 'regulatory', name: 'Korlantas POLRI', adapter: 'korlantas_feed', tier: 0, credibility: 0.9, coverage: 18, costLabel: 'free', language: 'id', status: 'recommended', on: true },
-  { id: 'bmkg', category: 'regulatory', name: 'BMKG', adapter: 'bmkg_feed', tier: 0, credibility: 0.92, coverage: 11, costLabel: 'free', language: 'id', status: 'limited', on: false },
-  { id: 'lbh', category: 'regulatory', name: 'LBH press releases', adapter: 'lbh_rss', tier: 0, credibility: 0.8, coverage: 22, costLabel: 'free', language: 'id', status: 'optional', on: false },
+  { id: 'ojk', category: 'regulatory', name: 'OJK consumer feed', adapter: 'ojk_feed', tier: 0, credibility: 0.95, coverage: 28, costLabel: 'free', language: 'id', status: 'recommended', on: true, residency: 'ID' },
+  { id: 'korlantas', category: 'regulatory', name: 'Korlantas POLRI', adapter: 'korlantas_feed', tier: 0, credibility: 0.9, coverage: 18, costLabel: 'free', language: 'id', status: 'recommended', on: true, residency: 'ID' },
+  { id: 'bmkg', category: 'regulatory', name: 'BMKG', adapter: 'bmkg_feed', tier: 0, credibility: 0.92, coverage: 11, costLabel: 'free', language: 'id', status: 'limited', on: false, residency: 'ID' },
+  { id: 'lbh', category: 'regulatory', name: 'LBH press releases', adapter: 'lbh_rss', tier: 0, credibility: 0.8, coverage: 22, costLabel: 'free', language: 'id', status: 'optional', on: false, residency: 'ID' },
 ];
 
 export const BUNDLE_SUMMARY = {

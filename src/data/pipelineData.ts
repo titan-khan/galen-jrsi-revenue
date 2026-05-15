@@ -227,6 +227,9 @@ export interface SourceConnectorConfig {
   throughputStats: { label: string; value: string }[];
   recentFailures: RecentFailure[];
   errorTolerance: string;
+  dataResidency: 'ID' | 'SG' | 'US';
+  retentionDays: number;
+  lawfulBasis: string;
 }
 
 export const SOURCE_CONNECTORS: SourceConnectorConfig[] = [
@@ -281,6 +284,9 @@ export const SOURCE_CONNECTORS: SourceConnectorConfig[] = [
       { time: '09:14', detail: '5xx · 2 retries · ok' },
     ],
     errorTolerance: '2 errors / 24h · within tolerance',
+    dataResidency: 'SG',
+    retentionDays: 30,
+    lawfulBasis: 'UU PDP 27/2022 Art. 20(c) — kepentingan publik · konten publik',
   },
 ];
 

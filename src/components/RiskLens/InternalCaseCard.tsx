@@ -13,7 +13,7 @@ export function InternalCaseCard({ record, highlight = false }: InternalCaseCard
     <Card
       className={cn(
         'p-3',
-        highlight && 'border-destructive/60 bg-destructive/[0.04]',
+        highlight && 'border-red-500/40 bg-red-500/[0.04]',
       )}
     >
       <div className="mb-2 flex items-center gap-2">
@@ -40,7 +40,7 @@ export function InternalCaseCard({ record, highlight = false }: InternalCaseCard
             <span
               className={cn(
                 'font-semibold',
-                record.slaBreach ? 'text-destructive' : 'text-foreground',
+                record.slaBreach ? 'text-red-600' : 'text-foreground',
               )}
             >
               {record.slaText}

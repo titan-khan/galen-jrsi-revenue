@@ -27,19 +27,43 @@ const TIER_TONE = (tier: SourceCandidate['tier']) =>
 const TIER_LABEL = (tier: SourceCandidate['tier']) =>
   tier === 0 ? 'free' : '$'.repeat(tier);
 
+const RESIDENCY_TONE: Record<SourceCandidate['residency'], string> = {
+  ID: 'border-emerald-500/50 text-emerald-700 bg-emerald-500/5',
+  SG: 'border-amber-500/50 text-amber-700 bg-amber-500/5',
+  US: 'border-destructive/50 text-destructive bg-destructive/5',
+};
+
 export function SourceCandidateRow({ source }: SourceCandidateRowProps) {
   const [on, setOn] = useState(source.on);
+  const disabled = source.comingSoon === true;
   return (
-    <Card className={cn('p-3', !on && 'opacity-60')}>
+    <Card className={cn('p-3', (!on || disabled) && 'opacity-60')}>
       <div className="flex items-center gap-4">
-        <Switch checked={on} onCheckedChange={setOn} aria-label={`toggle ${source.name}`} />
+        <Switch
+          checked={on}
+          onCheckedChange={setOn}
+          aria-label={`toggle ${source.name}`}
+          disabled={disabled}
+        />
 
         <div className="min-w-[180px]">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex flex-wrap items-baseline gap-1.5">
             <h3 className="text-sm font-semibold">{source.name}</h3>
             <Badge variant="outline" className="text-[10px]">
               {source.language}
             </Badge>
+            <Badge
+              variant="outline"
+              className={cn('text-[10px] font-mono', RESIDENCY_TONE[source.residency])}
+              title={`Data residency: ${source.residency}`}
+            >
+              {source.residency}
+            </Badge>
+            {disabled && (
+              <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                coming Q3
+              </Badge>
+            )}
           </div>
           <p className="font-mono text-[11px] text-muted-foreground">{source.adapter}</p>
         </div>

@@ -14,10 +14,10 @@ const STYLES: Record<Severity, { dot: string; text: string; ring: string; bg: st
     bg: 'bg-rose-700/10',
   },
   HIGH: {
-    dot: 'bg-destructive',
-    text: 'text-destructive',
-    ring: 'border-destructive/60',
-    bg: 'bg-destructive/10',
+    dot: 'bg-red-500',
+    text: 'text-red-700',
+    ring: 'border-red-500/60',
+    bg: 'bg-red-500/10',
   },
   MED: {
     dot: 'bg-amber-500',

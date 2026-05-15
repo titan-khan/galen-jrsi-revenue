@@ -8,22 +8,18 @@ interface StatusBadgeProps {
 
 const STYLES: Record<EventStatus, string> = {
   NEW: 'border-primary/50 text-primary',
-  ACK: 'border-amber-500/60 text-amber-700',
-  IN_PROGRESS: 'border-primary/50 text-primary',
+  WORKING: 'border-amber-500/60 text-amber-700',
   SNOOZED: 'border-muted-foreground/40 text-muted-foreground',
-  ESCALATED: 'border-destructive/60 text-destructive',
-  RESOLVED: 'border-emerald-500/60 text-emerald-700',
-  DISMISSED: 'border-muted-foreground/40 text-muted-foreground',
+  PENDING_APPROVAL: 'border-violet-500/60 text-violet-700',
+  CLOSED: 'border-emerald-500/60 text-emerald-700',
 };
 
 const LABELS: Record<EventStatus, string> = {
-  NEW: 'NEW',
-  ACK: 'ACK',
-  IN_PROGRESS: 'IN PROGRESS',
-  SNOOZED: 'SNOOZED',
-  ESCALATED: 'ESCALATED',
-  RESOLVED: 'RESOLVED',
-  DISMISSED: 'DISMISSED',
+  NEW: 'BARU',
+  WORKING: 'PROSES',
+  SNOOZED: 'TUNDA',
+  PENDING_APPROVAL: 'MENUNGGU PERSETUJUAN',
+  CLOSED: 'SELESAI',
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {

@@ -9,9 +9,9 @@ interface MAMResponseBadgeProps {
 
 const MAP: Record<MAMResponse, { ring: string; text: string; bg: string; sub: string }> = {
   AVOID: {
-    ring: 'border-destructive',
-    text: 'text-destructive',
-    bg: 'bg-destructive/10',
+    ring: 'border-red-500',
+    text: 'text-red-600',
+    bg: 'bg-red-500/10',
     sub: 'prevent',
   },
   REDUCE: {
