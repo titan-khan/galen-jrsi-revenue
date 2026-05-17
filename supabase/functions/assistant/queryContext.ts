@@ -281,6 +281,9 @@ const PYRAMID_ORDER: Record<string, number> = {
 
 function computeSummaryStats(data: Record<string, unknown>): void {
   // ---- Compliance pyramid (registry_enriched) ----
+  // Sample-based aggregation. The Edge Function may override the resulting
+  // compliancePyramid / complianceByKabupaten / totalKendaraanInSample with
+  // ground-truth values from gold.registry_global_stats() AFTER this runs.
   const registry = data['gold.registry_enriched'] as Array<{
     segmen_kepatuhan?: string;
     segmen_nama?: string;

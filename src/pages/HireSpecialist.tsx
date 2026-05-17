@@ -6,6 +6,7 @@ import { runSpecialist } from '@/services/specialistRunService';
 import {
   BusinessView,
   MetricConfig,
+  MonitoringFilter,
   MonitoringRule,
   KnowledgeFile,
   NotificationConfig,
@@ -13,7 +14,7 @@ import {
 import type { MetricDomain } from '@/types/metric';
 import { generateHandle } from '@/utils/handle';
 import { matchSuggestedMetrics, autoGenerateRulesFromMetrics, BUSINESS_VIEW_TO_DOMAIN } from '@/utils/specialistDefaults';
-import { getMetricDomainsForBusinessView } from '@/data/pkbRegistry';
+import { getMetricDomainsForBusinessView, PKB_USE_CASE_CATALOG } from '@/data/pkbRegistry';
 import { WizardLayout } from '@/components/Specialists/CreateWizard/WizardLayout';
 import { WizardStep } from '@/components/Specialists/CreateWizard/WizardSidebar';
 import { OverviewStep } from '@/components/Specialists/CreateWizard/OverviewStep';
@@ -59,7 +60,8 @@ const HireSpecialist = () => {
 
   // Step 2: Monitoring
   const [metrics, setMetrics] = useState<MetricConfig[]>([]);
-  const [drivers, setDrivers] = useState<MetricConfig[]>([]);
+  const [dimensions, setDimensions] = useState<string[]>([]);
+  const [filters, setFilters] = useState<MonitoringFilter[]>([]);
 
   // Step 3: Rules
   const [monitoringRules, setMonitoringRules] = useState<MonitoringRule[]>([]);
@@ -207,16 +209,23 @@ const HireSpecialist = () => {
     setBusinessView(view);
     setSelectedUseCaseId(null);
     setMetrics([]);
-    setDrivers([]);
+    setDimensions([]);
+    setFilters([]);
     setMonitoringRules([]);
   }, []);
 
-  // When a use case suggestion is clicked, prefill name & description
+  // When a use case suggestion is clicked, prefill name & description.
+  // If the suggestion id matches a catalog use case, also prefill dimensions.
   const handleUseCaseSuggestionClick = useCallback(
     (uc: { id: string; name: string; description: string }) => {
       setSelectedUseCaseId(uc.id);
       setName(uc.name);
       setDescription(uc.description);
+
+      const catalogMatch = PKB_USE_CASE_CATALOG.find((c) => c.id === uc.id);
+      if (catalogMatch?.defaultDimensions?.length) {
+        setDimensions(catalogMatch.defaultDimensions);
+      }
     },
     [],
   );
@@ -418,6 +427,8 @@ const HireSpecialist = () => {
         dataSources: [],
         refreshRate: notificationConfig.frequency === 'realtime' ? 'realtime' : 'hourly',
         metrics: metrics.map((m) => m.name),
+        ...(dimensions.length > 0 && { dimensions }),
+        ...(filters.length > 0 && { filters }),
       },
       monitoringRules,
       performance: {
@@ -431,7 +442,6 @@ const HireSpecialist = () => {
       businessView,
       useCaseId: selectedUseCaseId || undefined,
       metrics,
-      drivers,
       knowledgeBase: {
         files: knowledgeFiles,
         instructions,
@@ -483,8 +493,10 @@ const HireSpecialist = () => {
           businessView={businessView}
           metrics={metrics}
           onMetricsChange={setMetrics}
-          drivers={drivers}
-          onDriversChange={setDrivers}
+          dimensions={dimensions}
+          onDimensionsChange={setDimensions}
+          filters={filters}
+          onFiltersChange={setFilters}
           aiSuggestions={aiSuggestions}
           aiSummary={aiSummary}
           metricsOverlapMatch={metricsOverlapMatch}
@@ -496,7 +508,7 @@ const HireSpecialist = () => {
           rules={monitoringRules}
           onChange={setMonitoringRules}
           hasAutoRules={monitoringRules.length > 0}
-          availableMetrics={[...metrics, ...drivers]}
+          availableMetrics={metrics}
         />
       )}
 

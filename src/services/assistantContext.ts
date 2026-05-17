@@ -3,6 +3,7 @@ import type { Agent, TrackedRecommendation } from "@/types/agent";
 import type { Specialist } from "@/types/specialist";
 import type { AgentFinding, ConflictReport } from "@/types/assistant";
 import { detectAgentConflicts, generateConflictNarrative } from "./conflictDetection";
+import { getDimensionLabel } from "@/data/pkbRegistry";
 
 export interface AssistantContext {
   metricsCount: number;
@@ -52,6 +53,13 @@ export interface AssistantContext {
       refreshRate: string;
       metrics: string[];
       dimensions?: string[];
+      dimensionLabels?: string[];
+      filters?: {
+        dimension: string;
+        dimensionLabel: string;
+        operator: string;
+        value: unknown;
+      }[];
     };
     monitoringRules: {
       name: string;
@@ -379,6 +387,13 @@ export function buildAssistantContext(
             refreshRate: s.monitoringScope?.refreshRate || 'unknown',
             metrics: s.monitoringScope?.metrics || [],
             dimensions: s.monitoringScope?.dimensions,
+            dimensionLabels: s.monitoringScope?.dimensions?.map(getDimensionLabel),
+            filters: s.monitoringScope?.filters?.map((f) => ({
+              dimension: f.dimension,
+              dimensionLabel: getDimensionLabel(f.dimension),
+              operator: f.operator,
+              value: f.value,
+            })),
           },
           monitoringRules: (s.monitoringRules || []).filter((r) => r.enabled).map((r) => ({
             name: r.name,

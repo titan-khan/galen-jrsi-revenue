@@ -88,6 +88,7 @@ export interface AnalysisPlan {
     metrics: string[];
     timeRange: string;
     dimensions?: string[];
+    filters?: Array<{ dimension: string; operator: string; value: unknown }>;
   };
   proposedSteps: AnalysisPlanStep[];
   frameworksToApply: string[];

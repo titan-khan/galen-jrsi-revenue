@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { Check, TrendingUp, TrendingDown, Minus, AlertCircle, CheckCircle2, Info, Sparkles, Copy } from 'lucide-react';
 import { useMetrics } from '@/contexts/MetricsContext';
 import { SVGSparkline } from '@/components/MetricHub/SVGSparkline';
-import { MetricChips } from './MetricChips';
+import { DimensionChips } from './DimensionChips';
+import { FilterRows } from './FilterRows';
 import { cn } from '@/lib/utils';
-import type { BusinessView, MetricConfig, Specialist } from '@/types/specialist';
+import type { BusinessView, MetricConfig, MonitoringFilter, Specialist } from '@/types/specialist';
 import type { MetricDefinition, AISuggestionItem, AISummaryData } from '@/types/metric';
 // Single source of truth — adding a new PKB business view only requires
 // touching pkbRegistry.ts, not every wizard step that filters by domain.
@@ -72,8 +73,10 @@ interface MonitoringScopeStepProps {
   businessView: BusinessView | null;
   metrics: MetricConfig[];
   onMetricsChange: (metrics: MetricConfig[]) => void;
-  drivers: MetricConfig[];
-  onDriversChange: (drivers: MetricConfig[]) => void;
+  dimensions: string[];
+  onDimensionsChange: (dimensions: string[]) => void;
+  filters: MonitoringFilter[];
+  onFiltersChange: (filters: MonitoringFilter[]) => void;
   aiSuggestions?: AISuggestionItem[];
   aiSummary?: AISummaryData | null;
   metricsOverlapMatch?: Specialist | null;
@@ -90,8 +93,10 @@ export const MonitoringScopeStep = ({
   businessView,
   metrics,
   onMetricsChange,
-  drivers,
-  onDriversChange,
+  dimensions,
+  onDimensionsChange,
+  filters,
+  onFiltersChange,
   aiSuggestions = [],
   aiSummary = null,
   metricsOverlapMatch = null,
@@ -257,7 +262,8 @@ export const MonitoringScopeStep = ({
           </div>
         )}
 
-        <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/40">
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="max-h-[420px] overflow-y-auto divide-y divide-border/40">
           {scoredMetrics.map(({ metric, isAiSuggested, isNeedsAttention }) => {
             const isChecked = selectedIds.has(metric.id);
             const hasData = metric.displayData.currentValue !== '—';
@@ -363,6 +369,7 @@ export const MonitoringScopeStep = ({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -433,25 +440,25 @@ export const MonitoringScopeStep = ({
         </div>
       )}
 
-      {/* ── Additional Metrics (catalog search) ──────────────────────── */}
+      {/* ── Breakdown Dimensions ─────────────────────────────────────── */}
       <div className="border-t border-border/40 pt-6">
-        <MetricChips
-          label="Additional Metrics"
-          sublabel="Search the full catalog to add more metrics"
-          metrics={metrics}
-          onChange={onMetricsChange}
-          accentColor="bg-primary/10 text-primary"
+        <DimensionChips
+          label="Breakdown Dimensions"
+          sublabel="Pilih dimensi untuk pecah/grouping metrik (misal: per kabupaten, per segmen kepatuhan)"
+          businessView={businessView}
+          dimensions={dimensions}
+          onChange={onDimensionsChange}
         />
       </div>
 
-      {/* ── Key Drivers (optional) ───────────────────────────────────── */}
+      {/* ── Scope Filters (optional) ─────────────────────────────────── */}
       <div className="border-t border-border/40 pt-6">
-        <MetricChips
-          label="Key Drivers"
-          sublabel="Optional — add metrics that drive the monitored KPIs"
-          metrics={drivers}
-          onChange={onDriversChange}
-          accentColor="bg-violet-500/10 text-violet-600"
+        <FilterRows
+          label="Scope Filters"
+          sublabel="Optional — batasi monitoring ke subset data tertentu (misal: hanya kabupaten Palangka Raya)"
+          businessView={businessView}
+          filters={filters}
+          onChange={onFiltersChange}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Bell, ShieldAlert, AlertTriangle, Info } from 'lucide-react';
+import { Sparkles, Loader2, Bell, ShieldAlert, AlertTriangle, Info, SlidersHorizontal } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -206,6 +206,29 @@ export function CreateSpecialistDialog({
               onChange={setMetrics}
               accentColor="bg-primary/10 text-primary"
             />
+
+            {/* Link to full wizard for dimensions & filters */}
+            <button
+              type="button"
+              onClick={() => {
+                onOpenChange(false);
+                navigate('/specialists/new', {
+                  state: {
+                    prefill: {
+                      type: 'create_specialist',
+                      suggestedName: name,
+                      suggestedDescription: description,
+                      suggestedBusinessView: galenAction.suggestedBusinessView,
+                      suggestedMetrics: metrics.map((m) => m.name),
+                    },
+                  },
+                });
+              }}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              Configure breakdowns &amp; filters &rarr;
+            </button>
 
             {/* Auto-generated Alerts Preview */}
             {autoRules.length > 0 && (

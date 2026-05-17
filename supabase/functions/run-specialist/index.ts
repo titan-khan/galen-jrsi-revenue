@@ -17,7 +17,7 @@ import { decomposeMetrics, type DecompositionResult } from "./statisticalDecompo
 import { loadPatternMemory, type PatternMemoryEntry } from "./patternMemoryLoader.ts";
 import { clusterAnomalies, type ClusterResult, type AnomalyCluster } from "./anomalyClusterEngine.ts";
 import type { QueryContextSpec, QueryScope, SpecialistConfig } from "./types.ts";
-import { ROLLING_13M_FLOOR, getQuerySpecsForDomain, applyScopeToSpecs } from "./domainQuerySpecs.ts";
+import { ROLLING_13M_FLOOR, getQuerySpecsForDomain, applyScopeToSpecs, buildEffectiveScope } from "./domainQuerySpecs.ts";
 import { computeSummaryStats, formatDbDataForPrompt } from "./summaryStats.ts";
 import { buildSystemPrompt, buildInvestigationSystemPrompt, buildUserPrompt } from "./promptBuilder.ts";
 
@@ -351,10 +351,16 @@ serve(async (req) => {
         const domainExtras = domainSpecs.filter(s => !contextTables.has(s.table));
         querySpecs = [...contextSpecs, ...domainExtras];
       }
-      // Apply runtime scope (time range, dimension filters) to all specs
-      if (requestScope) {
-        querySpecs = applyScopeToSpecs(querySpecs, requestScope);
-        console.log(`[run-specialist] Applied query scope: ${JSON.stringify(requestScope)}`);
+      // Apply runtime scope (time range, dimension filters) to all specs.
+      // Merge config-level filters (monitoringScope.filters) with request-level
+      // filters; request-scope filters override config filters on same field.
+      const effectiveScope = buildEffectiveScope(config, requestScope);
+      const hasAnyScope =
+        requestScope !== undefined ||
+        (effectiveScope.structuredFilters && effectiveScope.structuredFilters.length > 0);
+      if (hasAnyScope) {
+        querySpecs = applyScopeToSpecs(querySpecs, effectiveScope);
+        console.log(`[run-specialist] Applied query scope: ${JSON.stringify(effectiveScope)}`);
       }
 
       console.log(`[run-specialist] Querying ${querySpecs.length} tables for domain: ${domain} (context: ${contextSpecs?.length ?? 0}, domain: ${domainSpecs.length}, merged: ${querySpecs.length})`);

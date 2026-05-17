@@ -1,8 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Bot, User, BarChart3, Loader2, Clock, Pencil, Trash2, Check, X, Users } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bot, User, Loader2, Clock, Pencil, Trash2, Check, X } from 'lucide-react';
 import { useMetrics } from '@/contexts/MetricsContext';
-import { useSpecialists } from '@/contexts/SpecialistsContext';
 import type { AssistantMessage as AssistantMessageType } from '@/types/assistant';
 import { ThinkingSteps } from './ThinkingSteps';
 // SummaryCard removed per design decision
@@ -22,6 +20,7 @@ import {
   splitResponseContent,
 } from '@/utils/streamingParser';
 import InlineChart from './InlineChart';
+import { AssistantMarkdown } from './AssistantMarkdown';
 import { formatDistanceToNow } from 'date-fns';
 
 interface AssistantMessageProps {
@@ -32,109 +31,6 @@ interface AssistantMessageProps {
   onEdit?: (messageId: string, newContent: string) => void;
   onDelete?: (messageId: string) => void;
   onSetEditing?: (messageId: string, isEditing: boolean) => void;
-}
-
-// Parse and render content with mentions and markdown
-function useContentRenderer(content: string) {
-  const { metrics } = useMetrics();
-  const { specialists } = useSpecialists();
-
-  // Build a lookup: lowercase name → type
-  const entityLookup = useMemo(() => {
-    const map = new Map<string, 'metric' | 'specialist'>();
-    metrics.forEach((m) => map.set(m.name.toLowerCase(), 'metric'));
-    specialists.forEach((s) => map.set(s.name.toLowerCase(), 'specialist'));
-    return map;
-  }, [metrics, specialists]);
-
-  // Sorted entity names (longest first) for greedy matching
-  const sortedNames = useMemo(
-    () => Array.from(entityLookup.keys()).sort((a, b) => b.length - a.length),
-    [entityLookup]
-  );
-
-  return useMemo(() => {
-    // Normalise dash bullet points to professional bullet dots
-    const normalised = content.replace(/^(\s*)- /gm, '$1\u2022 ');
-
-    const parts: React.ReactNode[] = [];
-    let key = 0;
-    let remaining = normalised;
-
-    while (remaining.length > 0) {
-      // Find the next @ or ** marker
-      const atIdx = remaining.indexOf('@');
-      const boldIdx = remaining.indexOf('**');
-
-      // No more markers
-      if (atIdx === -1 && boldIdx === -1) {
-        parts.push(remaining);
-        break;
-      }
-
-      // Determine which marker comes first
-      const nextAt = atIdx === -1 ? Infinity : atIdx;
-      const nextBold = boldIdx === -1 ? Infinity : boldIdx;
-
-      if (nextBold < nextAt) {
-        // Bold text comes first
-        if (boldIdx > 0) {
-          parts.push(remaining.slice(0, boldIdx));
-        }
-        const afterBold = remaining.slice(boldIdx + 2);
-        const closingIdx = afterBold.indexOf('**');
-        if (closingIdx !== -1) {
-          parts.push(<strong key={key++}>{afterBold.slice(0, closingIdx)}</strong>);
-          remaining = afterBold.slice(closingIdx + 2);
-        } else {
-          parts.push('**');
-          remaining = afterBold;
-        }
-      } else {
-        // @ mention comes first
-        if (atIdx > 0) {
-          parts.push(remaining.slice(0, atIdx));
-        }
-        const afterAt = remaining.slice(atIdx + 1);
-
-        // Try to greedy-match a known entity name
-        let matched = false;
-        for (const name of sortedNames) {
-          if (afterAt.toLowerCase().startsWith(name)) {
-            const charAfter = afterAt[name.length];
-            if (charAfter === undefined || /[\s@.,!?;:\n]/.test(charAfter)) {
-              const mentionName = afterAt.slice(0, name.length);
-              const type = entityLookup.get(name)!;
-              const Icon = type === 'metric' ? BarChart3 : Users;
-              const colorClass = type === 'metric'
-                ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
-
-              parts.push(
-                <span
-                  key={key++}
-                  className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-xs font-medium', colorClass)}
-                >
-                  <Icon className="h-3 w-3" />
-                  <span>{mentionName}</span>
-                </span>
-              );
-              remaining = afterAt.slice(name.length);
-              matched = true;
-              break;
-            }
-          }
-        }
-
-        if (!matched) {
-          parts.push('@');
-          remaining = afterAt;
-        }
-      }
-    }
-
-    return parts.length > 0 ? parts : [normalised];
-  }, [content, entityLookup, sortedNames]);
 }
 
 // Renders interleaved text + chart segments
@@ -156,10 +52,9 @@ function SegmentRenderer({ segments, evidenceText }: {
   );
 }
 
-// Renders a text segment through the same mention/bold parsing as useContentRenderer
+// Renders a text segment as markdown with @mention chip support
 function TextSegment({ content }: { content: string }) {
-  const rendered = useContentRenderer(content);
-  return <>{rendered}</>;
+  return <AssistantMarkdown>{content}</AssistantMarkdown>;
 }
 
 export function AssistantMessage({
@@ -251,7 +146,6 @@ export function AssistantMessage({
 
   // For text-only rendering (no charts or for fallback)
   const textForRenderer = contentSegments ? '' : mainContent;
-  const renderedContent = useContentRenderer(textForRenderer);
 
   const handleStartEdit = () => {
     setEditValue(message.content);
@@ -403,11 +297,11 @@ export function AssistantMessage({
           {/* Main Response */}
           {(sections.response.text || sections.currentSection === 'response') && (
             <div className="rounded-2xl border border-border/40 bg-background px-4 py-3">
-              <div className="text-sm whitespace-pre-wrap leading-relaxed">
+              <div className="text-sm leading-relaxed">
                 {contentSegments ? (
                   <SegmentRenderer segments={contentSegments} evidenceText={mainContent} />
                 ) : (
-                  renderedContent
+                  <AssistantMarkdown>{textForRenderer}</AssistantMarkdown>
                 )}
                 {(sections.currentSection === 'response' ||
                   (message.isStreaming && !sections.summary.isComplete)) && (
@@ -471,8 +365,8 @@ export function AssistantMessage({
         )}
 
         <div className="rounded-2xl px-4 py-3 border border-border/40 bg-background text-foreground">
-          <div className="text-sm whitespace-pre-wrap leading-relaxed">
-            {renderedContent}
+          <div className="text-sm leading-relaxed">
+            <AssistantMarkdown>{message.content}</AssistantMarkdown>
             {message.isStreaming && (
               <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse" />
             )}
