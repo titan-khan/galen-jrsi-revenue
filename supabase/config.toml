@@ -1,1 +1,8 @@
-project_id = "babpwnkoapgzvnuftyid"
+project_id = "bpctzhvgmeypnpwftltz"
+
+# Edge function settings.
+# verify_jwt = false → menerima publishable / anon key tanpa harus JWT format.
+# Konsisten dengan deploy yang dipakai assistant, metrics-ai, follow-up-questions.
+# Aman karena fungsi tidak menulis ke DB dan API key OpenRouter tetap di server.
+[functions.web-search]
+verify_jwt = false

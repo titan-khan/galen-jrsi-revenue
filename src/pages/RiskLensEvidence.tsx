@@ -5,17 +5,42 @@ import { Badge } from '@/components/ui/badge';
 import { EvidenceContent } from '@/components/RiskLens/EvidenceContent';
 import { getRiskEvent } from '@/data/riskLensData';
 
+const PRINT_STYLES = `
+@media print {
+  body { background: white !important; }
+  nav, aside, [data-sidebar], [data-app-shell-nav], [data-app-shell-header], header > nav, .no-print {
+    display: none !important;
+  }
+  [data-evidence-page] {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-evidence-page] section,
+  [data-evidence-page] article {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  [data-evidence-page] .rounded-xl,
+  [data-evidence-page] .rounded-lg,
+  [data-evidence-page] .rounded-md {
+    box-shadow: none !important;
+  }
+}
+`;
+
 const RiskLensEvidence = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const event = getRiskEvent(eventId);
 
   if (!event) {
-    return <Navigate to="/research/risk-lens" replace />;
+    return <Navigate to="/research/risk-lens/worklist" replace />;
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div className="border-b border-border px-6 py-3">
+    <div className="flex flex-col flex-1 min-h-0" data-evidence-page>
+      <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
+
+      <div className="border-b border-border px-6 py-3 no-print">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Button asChild variant="ghost" size="sm" className="h-auto px-2 py-1 -ml-2">
             <Link to={`/research/risk-lens/${event.id}`}>
@@ -34,9 +59,9 @@ const RiskLensEvidence = () => {
                 golden case
               </Badge>
             )}
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
               <FileDown className="mr-1.5 h-3.5 w-3.5" />
-              Export PDF
+              Cetak / Ekspor PDF
             </Button>
           </div>
         </div>
@@ -46,11 +71,14 @@ const RiskLensEvidence = () => {
         <div className="mx-auto max-w-4xl space-y-5">
           <header className="space-y-1">
             <h1 className="text-2xl font-semibold text-foreground">
-              Why the system flagged this event
+              Mengapa sistem menandai event ini
             </h1>
             <p className="text-sm text-muted-foreground">
-              Trust panel — every claim above maps back to a signal here. If you disagree, this is
-              where to point.
+              Trust panel · setiap klaim di event detail bisa ditelusuri ke sinyal di halaman ini.
+              Halaman ini adalah artefak audit yang dapat dicetak / di-ekspor sebagai PDF.
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Dicetak {new Date().toLocaleString('id-ID')} · {event.internalCase.caseId}
             </p>
           </header>
           <EvidenceContent event={event} />

@@ -33,7 +33,7 @@ const REASONS = [
   },
   {
     id: 'miscalibrated',
-    title: 'Amplifier credibility miscalibrated',
+    title: 'Voice-of-reach credibility miscalibrated',
     sub: '@LBHJakarta less credible than weighted',
   },
   {

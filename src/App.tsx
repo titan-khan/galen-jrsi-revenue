@@ -49,6 +49,17 @@ const RiskLensActiveDiscovery = lazy(() => import("./pages/RiskLensActiveDiscove
 const BriefStep1Intent = lazy(() => import("./pages/BriefStep1Intent"));
 const BriefStep2Sources = lazy(() => import("./pages/BriefStep2Sources"));
 const BriefStep3Readiness = lazy(() => import("./pages/BriefStep3Readiness"));
+const ResearchMethodology = lazy(() => import("./pages/ResearchMethodology"));
+const RiskLensApprovals = lazy(() => import("./pages/RiskLensApprovals"));
+const RiskLensOverview = lazy(() => import("./pages/RiskLensOverview"));
+const RisetLanding = lazy(() => import("./pages/RisetLanding"));
+const BriefingDetail = lazy(() => import("./pages/BriefingDetail"));
+const PolaDetail = lazy(() => import("./pages/PolaDetail"));
+const LivePolaDetail = lazy(() => import("./pages/LivePolaDetail"));
+const MulaiSesi = lazy(() => import("./pages/MulaiSesi"));
+const TinjauRencana = lazy(() => import("./pages/TinjauRencana"));
+const SesiRunning = lazy(() => import("./pages/SesiRunning"));
+const MentionFeed = lazy(() => import("./pages/MentionFeed"));
 const CacheDashboard = lazy(() => import("./components/Debug/CacheDashboard").then(m => ({ default: m.CacheDashboard })));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Login = lazy(() => import("./pages/Login"));
@@ -138,8 +149,18 @@ const App = () => {
                 <Route path="/data-connector" element={<DataConnector />} />
                 <Route path="/data-connector/csv-upload" element={<CsvUpload />} />
                 <Route path="/reports" element={<Reports />} />
-                <Route path="/research" element={<Research />} />
-                <Route path="/research/risk-lens" element={<RiskLensWorklist />} />
+                <Route path="/research" element={<RisetLanding />} />
+                <Route path="/research/new" element={<MulaiSesi />} />
+                <Route path="/research/new/plan" element={<TinjauRencana />} />
+                <Route path="/research/mentions" element={<MentionFeed />} />
+                <Route path="/research/sesi/:sesiId" element={<BriefingDetail />} />
+                <Route path="/research/sesi/:sesiId/running" element={<SesiRunning />} />
+                <Route path="/research/sesi/:sesiId/pola/:polaId" element={<PolaDetail />} />
+                <Route path="/research/sesi/:sesiId/live-pola/:polaNumber" element={<LivePolaDetail />} />
+                {/* Legacy Risk Lens routes — kept for deep-links, hidden from primary nav */}
+                <Route path="/research/legacy" element={<Research />} />
+                <Route path="/research/risk-lens" element={<RiskLensOverview />} />
+                <Route path="/research/risk-lens/worklist" element={<RiskLensWorklist />} />
                 <Route path="/research/risk-lens/:eventId" element={<RiskLensDetail />} />
                 <Route path="/research/risk-lens/:eventId/evidence" element={<RiskLensEvidence />} />
                 <Route path="/research/risk-lens/pipeline" element={<RiskLensPipeline />} />
@@ -150,6 +171,8 @@ const App = () => {
                 <Route path="/research/monitor/new" element={<BriefStep1Intent />} />
                 <Route path="/research/monitor/new/sources" element={<BriefStep2Sources />} />
                 <Route path="/research/monitor/new/readiness" element={<BriefStep3Readiness />} />
+                <Route path="/research/methodology" element={<ResearchMethodology />} />
+                <Route path="/research/risk-lens/approvals" element={<RiskLensApprovals />} />
                 {/* Investigation is handled by /assistant — see Research hub */}
                 <Route path="/research/investigate" element={<Navigate to="/assistant" replace />} />
                 <Route path="/research/investigate/*" element={<Navigate to="/assistant" replace />} />
