@@ -98,6 +98,16 @@ export const cacheKeys = {
     /** Key for configuration */
     config: () => [...cacheKeys.static.all, 'config'] as const,
   },
+  /**
+   * Web search cache keys (Riset live evidence panel)
+   */
+  webSearch: {
+    /** Base key for all web search caches */
+    all: ['web-search'] as const,
+    /** Key for a specific query+focus pair */
+    query: (q: string, focus?: string) =>
+      [...cacheKeys.webSearch.all, q, focus ?? 'all'] as const,
+  },
 };
 
 /**

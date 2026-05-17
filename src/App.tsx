@@ -55,6 +55,7 @@ const RiskLensOverview = lazy(() => import("./pages/RiskLensOverview"));
 const RisetLanding = lazy(() => import("./pages/RisetLanding"));
 const BriefingDetail = lazy(() => import("./pages/BriefingDetail"));
 const PolaDetail = lazy(() => import("./pages/PolaDetail"));
+const LivePolaDetail = lazy(() => import("./pages/LivePolaDetail"));
 const MulaiSesi = lazy(() => import("./pages/MulaiSesi"));
 const TinjauRencana = lazy(() => import("./pages/TinjauRencana"));
 const SesiRunning = lazy(() => import("./pages/SesiRunning"));
@@ -155,6 +156,7 @@ const App = () => {
                 <Route path="/research/sesi/:sesiId" element={<BriefingDetail />} />
                 <Route path="/research/sesi/:sesiId/running" element={<SesiRunning />} />
                 <Route path="/research/sesi/:sesiId/pola/:polaId" element={<PolaDetail />} />
+                <Route path="/research/sesi/:sesiId/live-pola/:polaNumber" element={<LivePolaDetail />} />
                 {/* Legacy Risk Lens routes — kept for deep-links, hidden from primary nav */}
                 <Route path="/research/legacy" element={<Research />} />
                 <Route path="/research/risk-lens" element={<RiskLensOverview />} />

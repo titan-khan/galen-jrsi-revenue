@@ -1,10 +1,16 @@
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronLeft, Pause, Eye, Check } from 'lucide-react';
+import { ChevronLeft, Pause, Eye, Check, Globe, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { WizardStepper } from '@/components/Riset/WizardStepper';
+import { DemoModeToggle } from '@/components/Riset/DemoModeToggle';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { fetchWebSearch } from '@/services/webSearchService';
+import { usePeriod } from '@/hooks/usePeriod';
+import type { WebSearchResult } from '@/types/webSearch';
 import { getSesi, type ActivityLogLine, type PlanStep } from '@/data/risetData';
 
 const STEPS = [
@@ -13,9 +19,48 @@ const STEPS = [
   { label: 'Berjalan' },
 ];
 
+type LiveSearchState =
+  | { kind: 'idle' }
+  | { kind: 'searching'; startedAt: number }
+  | { kind: 'done'; result: WebSearchResult; finishedAt: number }
+  | { kind: 'error'; message: string };
+
 const SesiRunning = () => {
   const { sesiId } = useParams<{ sesiId: string }>();
+  const navigate = useNavigate();
   const sesi = getSesi(sesiId);
+  const { isDemoMode } = useDemoMode();
+  const { period } = usePeriod();
+
+  const [liveState, setLiveState] = useState<LiveSearchState>({ kind: 'idle' });
+
+  // Fire the live web search exactly once when the user lands here in Live mode.
+  // Cancellation flag prevents state updates after unmount.
+  useEffect(() => {
+    if (isDemoMode || !sesi) return;
+    let cancelled = false;
+    setLiveState({ kind: 'searching', startedAt: Date.now() });
+    const query = `Klaim Jasa Raharja Indonesia: ${sesi.risetName}`.slice(0, 240);
+    fetchWebSearch(query, { focus: 'all', maxResults: 12, periodDays: period.days })
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setLiveState({ kind: 'done', result, finishedAt: Date.now() });
+          toast.success('Pencarian web selesai', {
+            description: `${result.citations.length} sumber ditemukan. Lihat di Briefing.`,
+          });
+        } else {
+          setLiveState({ kind: 'error', message: 'Tidak ada hasil dari pencarian web.' });
+        }
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setLiveState({ kind: 'error', message: err.message || 'Pencarian gagal.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemoMode, sesi, period.days]);
 
   if (!sesi || !sesi.runProgress) {
     return <Navigate to="/research" replace />;
@@ -37,11 +82,12 @@ const SesiRunning = () => {
           <span className="text-muted-foreground/40">/</span>
           <span className="font-medium text-foreground">Sesi sedang berjalan</span>
         </nav>
-        <div className="flex flex-wrap items-baseline gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold text-foreground">{sesi.risetName}</h1>
           <span className="font-mono text-[12.5px] text-muted-foreground">
             dimulai {runProgress.startedAt} · {runProgress.elapsedLabel}
           </span>
+          <DemoModeToggle size="sm" />
         </div>
       </div>
 
@@ -72,6 +118,82 @@ const SesiRunning = () => {
               </p>
             </CardContent>
           </Card>
+
+          {/* Live web-search card — only shown when Demo Mode is OFF */}
+          {!isDemoMode && (
+            <Card className="mt-4 border-emerald-200/70 bg-emerald-50/30">
+              <CardContent className="p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-[12.5px] font-semibold text-emerald-800">
+                    <Globe className="h-3.5 w-3.5" />
+                    Pencarian web live · OpenRouter
+                  </div>
+                  {liveState.kind === 'done' && (
+                    <span className="font-mono text-[11px] text-emerald-700">
+                      {liveState.result.citations.length} sumber ·{' '}
+                      {((liveState.finishedAt - (liveState.result.latencyMs ? Date.now() - liveState.result.latencyMs : liveState.finishedAt)) / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                </div>
+
+                {liveState.kind === 'searching' && (
+                  <div className="flex items-center gap-2 text-[12.5px] text-emerald-900/80">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Memanggil <span className="font-mono">openai/gpt-4o-mini-search-preview</span>…
+                  </div>
+                )}
+
+                {liveState.kind === 'done' && (
+                  <div className="space-y-1.5">
+                    {liveState.result.citations.slice(0, 5).map((c, i) => (
+                      <a
+                        key={`${c.url}-${i}`}
+                        href={c.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-2 rounded-md border border-emerald-100 bg-white/80 px-2.5 py-1.5 text-[12px] transition-colors hover:bg-white"
+                      >
+                        <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-100 font-mono text-[9px] font-semibold text-emerald-800">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate font-medium text-foreground" title={c.title}>
+                            {c.title}
+                          </span>
+                          <span className="block truncate font-mono text-[10.5px] text-muted-foreground">
+                            {c.sourceDomain}
+                            {c.date ? ` · ${c.date}` : ''}
+                          </span>
+                        </span>
+                        <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                      </a>
+                    ))}
+                    {liveState.result.citations.length > 5 && (
+                      <p className="pl-7 text-[11px] text-muted-foreground">
+                        +{liveState.result.citations.length - 5} sumber lain akan dimasukkan ke
+                        Briefing.
+                      </p>
+                    )}
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        size="sm"
+                        className="h-7 gap-1.5 text-[12px]"
+                        onClick={() =>
+                          navigate(`/research/sesi/sesi-2026-05-13-jrsi-claim-health`)
+                        }
+                      >
+                        Lihat Briefing dengan citation live
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {liveState.kind === 'error' && (
+                  <p className="text-[12px] text-red-700">{liveState.message}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Step list */}
           <ul className="mt-4 flex flex-col gap-2.5">

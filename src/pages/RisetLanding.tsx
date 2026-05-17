@@ -3,11 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Calendar, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MentionFeedPanel } from '@/components/Riset/MentionFeedPanel';
+import { WebSearchEvidencePanel } from '@/components/Riset/WebSearchEvidencePanel';
+import { DemoModeToggle } from '@/components/Riset/DemoModeToggle';
 import { BriefingCard } from '@/components/Riset/BriefingCard';
-import { SESIONS, subscribePolaStatus } from '@/data/risetData';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { SESIONS, RISET_INFO, subscribePolaStatus } from '@/data/risetData';
 
 const RisetLanding = () => {
   const navigate = useNavigate();
+  const { isDemoMode } = useDemoMode();
   const runningSesi = useMemo(() => SESIONS.find((s) => s.status === 'running'), []);
   const completedSesi = useMemo(() => SESIONS.filter((s) => s.status === 'completed'), []);
 
@@ -20,7 +24,10 @@ const RisetLanding = () => {
       <div className="border-b border-border bg-background px-6 pb-5 pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-foreground">Riset</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground">Riset</h1>
+              <DemoModeToggle size="sm" />
+            </div>
             <p className="mt-1 max-w-[560px] text-[13px] text-muted-foreground/70">
               Investigasi otomatis untuk pola operasional yang penting. Sesi berjalan terjadwal,
               atau mulai investigasi langsung.
@@ -96,7 +103,15 @@ const RisetLanding = () => {
 
         {/* Right panel */}
         <div className="hidden lg:block">
-          <MentionFeedPanel />
+          {isDemoMode ? (
+            <MentionFeedPanel />
+          ) : (
+            <WebSearchEvidencePanel
+              query={RISET_INFO.name}
+              focus="all"
+              scopeLabel="Pencarian live — media + sosial publik"
+            />
+          )}
         </div>
       </div>
     </div>

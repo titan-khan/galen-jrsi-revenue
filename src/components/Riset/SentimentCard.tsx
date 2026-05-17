@@ -5,9 +5,13 @@ import type { SesiAnalytics } from '@/data/risetData';
 
 interface SentimentCardProps {
   analytics: SesiAnalytics;
+  /** Override "minggu ini" copy — Live mode uses the user-selected period. */
+  periodLabel?: string;
+  /** Override unit "percakapan" — Live mode uses "citation" since N is small. */
+  unitLabel?: string;
 }
 
-export function SentimentCard({ analytics: a }: SentimentCardProps) {
+export function SentimentCard({ analytics: a, periodLabel, unitLabel }: SentimentCardProps) {
   const trendUp = a.trendChangePoints > 0;
   const trendFlat = Math.abs(a.trendChangePoints) < 0.3;
   const trendIsWorse = trendUp; // negative sentiment going up = worse
@@ -21,7 +25,7 @@ export function SentimentCard({ analytics: a }: SentimentCardProps) {
             Sentimen di media sosial &amp; berita
           </h3>
           <span className="font-mono text-[11.5px] text-muted-foreground">
-            {a.totalConversations.toLocaleString('id-ID')} percakapan dianalisis
+            {a.totalConversations.toLocaleString('id-ID')} {unitLabel ?? 'percakapan'} dianalisis
           </span>
         </div>
 
@@ -31,7 +35,7 @@ export function SentimentCard({ analytics: a }: SentimentCardProps) {
             {a.sentimentNegativePct}%
           </span>
           <span className="text-[13px] text-muted-foreground">
-            percakapan bernada negatif minggu ini
+            {unitLabel ?? 'percakapan'} bernada negatif {periodLabel ?? 'minggu ini'}
           </span>
           <span
             className={cn(

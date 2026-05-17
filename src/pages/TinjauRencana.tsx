@@ -1,10 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { ChevronLeft, Play, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { WizardStepper } from '@/components/Riset/WizardStepper';
-import { CANONICAL_PLAN } from '@/data/risetData';
+import { DemoModeToggle } from '@/components/Riset/DemoModeToggle';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { CANONICAL_PLAN, type PlanStep } from '@/data/risetData';
 
 const STEPS = [
   { label: 'Konfigurasi' },
@@ -14,10 +16,31 @@ const STEPS = [
 
 const TinjauRencana = () => {
   const navigate = useNavigate();
+  const { isDemoMode } = useDemoMode();
+
+  // When Live mode is on, replace the legacy "Newstensity + Determ" step 1 with the
+  // actual OpenRouter web-search step that will run during the Sesi.
+  const planSteps: PlanStep[] = isDemoMode
+    ? CANONICAL_PLAN
+    : [
+        {
+          ...CANONICAL_PLAN[0],
+          title: 'Pencarian web live via OpenRouter',
+          detailLines: [
+            { label: 'sumber:', value: 'OpenAI gpt-4o-mini-search-preview (web search built-in)' },
+            { label: 'fokus:', value: 'media berita ID + sosial publik (Twitter/X, Reddit, forum)' },
+            { label: 'est. output:', value: '5–15 sumber dengan judul, URL, snippet, tanggal' },
+          ],
+          estTimeLabel: '~6–10 detik',
+        },
+        ...CANONICAL_PLAN.slice(1),
+      ];
 
   const handleRun = () => {
     toast.success('Sesi Riset dimulai', {
-      description: 'Anda akan diarahkan ke halaman progress.',
+      description: isDemoMode
+        ? 'Anda akan diarahkan ke halaman progress.'
+        : 'Memicu pencarian web live — citation akan muncul setelah Sesi selesai.',
     });
     navigate('/research/sesi/sesi-2026-05-13-jrsi-claim-health-adhoc/running');
   };
@@ -40,7 +63,10 @@ const TinjauRencana = () => {
           <span className="text-muted-foreground/40">/</span>
           <span className="font-medium text-foreground">Rencana</span>
         </nav>
-        <h1 className="text-xl font-semibold text-foreground">Tinjau rencana riset</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold text-foreground">Tinjau rencana riset</h1>
+          <DemoModeToggle size="sm" />
+        </div>
       </div>
 
       {/* Body */}
@@ -58,9 +84,24 @@ const TinjauRencana = () => {
             ini. Estimasi total ~5 menit. Anda dapat edit setiap langkah atau lanjutkan langsung.
           </div>
 
+          {/* Live mode banner */}
+          {!isDemoMode && (
+            <div className="mb-5 flex items-start gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3 text-[12.5px] text-emerald-900">
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />
+              <div>
+                <div className="font-semibold">Live Mode aktif</div>
+                <p className="text-emerald-900/80">
+                  Step 1 akan memakai <span className="font-mono">openai/gpt-4o-mini-search-preview</span>{' '}
+                  via OpenRouter untuk menarik sumber publik (media + sosial). Citation real akan
+                  ditampilkan di Briefing detail begitu Sesi selesai.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Plan steps */}
           <ul className="flex flex-col gap-3">
-            {CANONICAL_PLAN.map((step) => (
+            {planSteps.map((step) => (
               <li key={step.number}>
                 <Card>
                   <CardContent className="grid grid-cols-[28px_1fr_auto] gap-4 p-5">

@@ -5,6 +5,10 @@ import type { VolumeTimeline } from '@/data/risetData';
 
 interface VolumeTimelineCardProps {
   timeline: VolumeTimeline;
+  /** Override the default "Volume percakapan minggu ini" heading — used by Live mode. */
+  titleOverride?: string;
+  /** Override the default Newstensity/Determ methodology note — used by Live mode. */
+  methodologyOverride?: string;
 }
 
 const CHART_W = 640;
@@ -16,13 +20,29 @@ const PAD_B = 40;
 const PLOT_W = CHART_W - PAD_L - PAD_R;
 const PLOT_H = CHART_H - PAD_T - PAD_B;
 
-export function VolumeTimelineCard({ timeline }: VolumeTimelineCardProps) {
+export function VolumeTimelineCard({
+  timeline,
+  titleOverride,
+  methodologyOverride,
+}: VolumeTimelineCardProps) {
   const { days, annotations, context, totalConversations, rangeLabel } = timeline;
 
   const totals = days.map((d) => d.negative + d.neutral + d.positive);
-  const maxTotal = Math.max(...totals);
-  // Round y-axis to clean increments (≈400 if max is 400-ish)
-  const yMax = Math.ceil(maxTotal / 100) * 100;
+  const maxTotal = Math.max(...totals, 1);
+  // Smart y-axis rounding: scale increments to the magnitude of the data so small
+  // counts (Live mode, N≈2-15) don't get drowned in a 0-100 scale.
+  const yMax =
+    maxTotal <= 5
+      ? 5
+      : maxTotal <= 10
+      ? 10
+      : maxTotal <= 25
+      ? 25
+      : maxTotal <= 50
+      ? 50
+      : maxTotal <= 100
+      ? 100
+      : Math.ceil(maxTotal / 100) * 100;
 
   const yToPx = (v: number) => PAD_T + (1 - v / yMax) * PLOT_H;
   const xToPx = (i: number) => PAD_L + (i / (days.length - 1)) * PLOT_W;
@@ -79,7 +99,7 @@ export function VolumeTimelineCard({ timeline }: VolumeTimelineCardProps) {
       <CardContent className="space-y-3 p-5">
         <div className="flex items-baseline justify-between border-b border-border pb-2.5">
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Volume percakapan minggu ini
+            {titleOverride ?? "Volume percakapan minggu ini"}
           </h3>
         </div>
 
@@ -99,8 +119,12 @@ export function VolumeTimelineCard({ timeline }: VolumeTimelineCardProps) {
         <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
           <Info className="mt-0.5 h-3 w-3 shrink-0 opacity-60" />
           <span>
-            Data percakapan dari layanan media intelligence terintegrasi (Newstensity, Determ).
-            Analisis coupling dengan data klaim internal oleh Galen.
+            {methodologyOverride ?? (
+              <>
+                Data percakapan dari layanan media intelligence terintegrasi (Newstensity, Determ).
+                Analisis coupling dengan data klaim internal oleh Galen.
+              </>
+            )}
           </span>
         </div>
 
